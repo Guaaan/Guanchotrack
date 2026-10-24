@@ -201,3 +201,63 @@ button:disabled {
   font-weight: bold;
   border: 2px solid var(--c-black);
 }
+
+/* Panel de apuestas del host: texto grande para pantalla proyectada. */
+.betting {
+  font-size: 1.25em;
+}
+
+.betting .pot {
+  margin: 0;
+  font-size: 2.5em;
+  font-weight: bold;
+  color: var(--c-yellow);
+}
+
+.horse-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.horse-card {
+  padding: 12px;
+  background: var(--c-dark-blue);
+  border: 3px solid var(--c-dark-grey);
+}
+
+.horse-card p {
+  margin: 4px 0;
+}
+
+.bets {
+  margin: 8px 0 0;
+  padding-left: 1.2em;
+  font-size: 0.85em;
+  color: var(--c-light-grey);
+}
+
+.status {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.status h3 {
+  margin-bottom: 4px;
+}
+
+button.danger {
+  color: var(--c-white);
+  background: var(--c-red);
+}
+
+button.danger:disabled {
+  color: var(--c-dark-grey);
+  background: var(--c-light-grey);
+}
+
+.row[hidden],
+button[hidden] {
+  display: none;
+}

@@ -95,6 +95,7 @@ export async function createApp(opts: AppOptions): Promise<App> {
     app.use(express.static(join(ROOT, 'dist')));
   }
 
+  game.recoverOnBoot();
   attachSocket(io, db, game);
 
   await new Promise<void>((resolve) => httpServer.listen(opts.port, '0.0.0.0', resolve));

@@ -141,13 +141,13 @@ ver la pantalla del host y los celulares actualizarse sin recargar (spec US3).
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T038 [P] [US3] Integration test `tests/integration/live-updates.test.ts`: after A bets, host and B receive a new `state` within 1000 ms with updated `pot`, `multiplier` and A's row; B's `PlayerState` JSON contains no other username, bet or balance (FR-029); `betStatus.missing` lists connected players without bet, a player disconnecting without bet leaves `missing`, a player who bet and disconnects stays in `placed`, reconnecting player reappears in `missing`; reconnect receives full snapshot immediately
-- [ ] T039 [P] [US3] Integration test `tests/integration/sync-load.test.ts` (SC-004): connect host + 20 player sockets, host adds coins, all 20 bet on random horses, start race with `tickMs: 1`; assert every host socket receives identical `race.positions` per tick and the same `result`, every player's `myResult.payout` matches the host's `result.winners`, all bet/state updates arrive within 1000 ms, and `checkInvariant()` holds
+- [X] T038 [P] [US3] Integration test `tests/integration/live-updates.test.ts`: after A bets, host and B receive a new `state` within 1000 ms with updated `pot`, `multiplier` and A's row; B's `PlayerState` JSON contains no other username, bet or balance (FR-029); `betStatus.missing` lists connected players without bet, a player disconnecting without bet leaves `missing`, a player who bet and disconnects stays in `placed`, reconnecting player reappears in `missing`; reconnect receives full snapshot immediately
+- [X] T039 [P] [US3] Integration test `tests/integration/sync-load.test.ts` (SC-004): connect host + 20 player sockets, host adds coins, all 20 bet on random horses, start race with `tickMs: 1`; assert every host socket receives identical `race.positions` per tick and the same `result`, every player's `myResult.payout` matches the host's `result.winners`, all bet/state updates arrive within 1000 ms, and `checkInvariant()` holds
 
 ### Implementation for User Story 3
 
-- [ ] T040 [US3] In `server/game.ts` compute `betStatus` (`placed` = usernames with an active bet in the current round regardless of connection; `missing` = connected players (`presence` > 0, role player) without an active bet); presence changes already broadcast via T014, no socket changes needed
-- [ ] T041 [US3] Add `renderBetting(state)` to `src/host/panel.ts`: pot as "Pozo: N" plus "incluye N acumulado" when `carry > 0` (FR-021a); one card per horse (color swatch, number, total apostado, nº apostadores, `formatMultiplier`, list of `username — apuesta → recibiría`); "Apostaron" and "Faltan" lists; large legible text for a projected screen; update in place on every `state`
+- [X] T040 [US3] In `server/game.ts` compute `betStatus` (`placed` = usernames with an active bet in the current round regardless of connection; `missing` = connected players (`presence` > 0, role player) without an active bet); presence changes already broadcast via T014, no socket changes needed
+- [X] T041 [US3] Add `renderBetting(state)` to `src/host/panel.ts`: pot as "Pozo: N" plus "incluye N acumulado" when `carry > 0` (FR-021a); one card per horse (color swatch, number, total apostado, nº apostadores, `formatMultiplier`, list of `username — apuesta → recibiría`); "Apostaron" and "Faltan" lists; large legible text for a projected screen; update in place on every `state`
 
 **Checkpoint**: US1 + US3 funcionan; `live-updates` y `sync-load` pasan
 
@@ -187,16 +187,16 @@ verificar saldos, apuestas e historial; intentar acciones de host como jugador (
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T049 [P] [US5] Integration test `tests/integration/host-permissions.test.ts`: from a player socket, each of `host:openRound`, `host:startRace`, `host:resetRound`, `host:resetRace`, `host:adjustBalance` returns `{ ok: false, error: "No autorizado" }` and DB state (rounds, bets, coin_transactions counts) is unchanged; host cannot `bet:place`
-- [ ] T050 [P] [US5] Integration test `tests/integration/resets.test.ts`: `host:resetRound` in `betting` ⇒ all active bets `refunded`, each player balance restored exactly, one `bet_refund` per bet with `note "reset round"`, carry unchanged, phase still `betting` with empty pot (except carry); `host:resetRace` in `racing` ⇒ `results.status 'annulled'`, phase `betting`, bets still `active` and editable, no ledger rows added; next `startRace` uses a new seed; resets out of phase rejected; `checkInvariant()` holds after each step
-- [ ] T051 [P] [US5] Integration test `tests/integration/recovery.test.ts`: using a temp-file DB, start a race, `close()` the app mid-race, recreate with same `dbPath` ⇒ round in `betting`, previous `results` row `annulled`, bets intact, balances unchanged (FR-041)
+- [X] T049 [P] [US5] Integration test `tests/integration/host-permissions.test.ts`: from a player socket, each of `host:openRound`, `host:startRace`, `host:resetRound`, `host:resetRace`, `host:adjustBalance` returns `{ ok: false, error: "No autorizado" }` and DB state (rounds, bets, coin_transactions counts) is unchanged; host cannot `bet:place`
+- [X] T050 [P] [US5] Integration test `tests/integration/resets.test.ts`: `host:resetRound` in `betting` ⇒ all active bets `refunded`, each player balance restored exactly, one `bet_refund` per bet with `note "reset round"`, carry unchanged, phase still `betting` with empty pot (except carry); `host:resetRace` in `racing` ⇒ `results.status 'annulled'`, phase `betting`, bets still `active` and editable, no ledger rows added; next `startRace` uses a new seed; resets out of phase rejected; `checkInvariant()` holds after each step
+- [X] T051 [P] [US5] Integration test `tests/integration/recovery.test.ts`: using a temp-file DB, start a race, `close()` the app mid-race, recreate with same `dbPath` ⇒ round in `betting`, previous `results` row `annulled`, bets intact, balances unchanged (FR-041)
 
 ### Implementation for User Story 5
 
-- [ ] T052 [US5] Implement in `server/game.ts`: `resetRound(actorId)` (only `betting`; active bets → `refunded` + `bet_refund` each with `note "reset round"`; carry untouched) and `resetRace()` (only `racing`; stop interval, discard in-memory race, `results.status = 'annulled'`, `phase = 'betting'`, bets untouched), both in a transaction followed by `broadcast()`
-- [ ] T053 [US5] Implement `recoverOnBoot()` in `server/game.ts` (if current round is `racing`: mark its `running` result `annulled`, set `phase 'betting'`) and call it from `createApp` in `server/index.ts` before accepting connections
-- [ ] T054 [US5] Wire `host:resetRound` and `host:resetRace` in `server/socket.ts` with `hostOnly` and ack
-- [ ] T055 [US5] Add to `src/host/panel.ts` buttons "Reiniciar apuestas" (enabled in `betting`) and "Reiniciar carrera" (enabled in `racing`) with an inline two-step confirmation ("¿Seguro? Sí / No", no `confirm()`), showing ack errors; other controls disabled outside their phase
+- [X] T052 [US5] Implement in `server/game.ts`: `resetRound(actorId)` (only `betting`; active bets → `refunded` + `bet_refund` each with `note "reset round"`; carry untouched) and `resetRace()` (only `racing`; stop interval, discard in-memory race, `results.status = 'annulled'`, `phase = 'betting'`, bets untouched), both in a transaction followed by `broadcast()`
+- [X] T053 [US5] Implement `recoverOnBoot()` in `server/game.ts` (if current round is `racing`: mark its `running` result `annulled`, set `phase 'betting'`) and call it from `createApp` in `server/index.ts` before accepting connections
+- [X] T054 [US5] Wire `host:resetRound` and `host:resetRace` in `server/socket.ts` with `hostOnly` and ack
+- [X] T055 [US5] Add to `src/host/panel.ts` buttons "Reiniciar apuestas" (enabled in `betting`) and "Reiniciar carrera" (enabled in `racing`) with an inline two-step confirmation ("¿Seguro? Sí / No", no `confirm()`), showing ack errors; other controls disabled outside their phase
 
 **Checkpoint**: Reinicios, permisos y recuperación verificados
 

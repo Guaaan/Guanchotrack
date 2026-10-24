@@ -60,6 +60,8 @@ export function attachSocket(io: Server, db: Db, game: Game): void {
     on('bet:place', (s, payload, ack) => run(ack, () => game.placeBet(s.data.userId, payload as BetPlacePayload)));
     on('host:openRound', hostOnly((_s, _p, ack) => run(ack, () => game.openRound())));
     on('host:startRace', hostOnly((_s, _p, ack) => run(ack, () => game.startRace())));
+    on('host:resetRound', hostOnly((s, _p, ack) => run(ack, () => game.resetRound(s.data.userId))));
+    on('host:resetRace', hostOnly((_s, _p, ack) => run(ack, () => game.resetRace())));
     on(
       'host:adjustBalance',
       hostOnly((s, payload, ack) => run(ack, () => game.adjustBalance(s.data.userId, payload as AdjustBalancePayload))),

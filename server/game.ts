@@ -251,6 +251,58 @@ export class Game {
     this.broadcast();
   }
 
+  /** Devuelve todas las apuestas activas de la ronda; el acumulado no se toca. */
+  resetRound(actorId: number): void {
+    const round = this.currentRound();
+    if (round?.phase !== 'betting') throw new GameError('Solo se pueden reiniciar las apuestas durante la fase de apuestas');
+    const now = this.now();
+    this.db.transaction(() => {
+      const bets = this.db
+        .prepare("SELECT id, user_id, amount FROM bets WHERE round_id = ? AND status = 'active'")
+        .all(round.id) as { id: number; user_id: number; amount: number }[];
+      const refund = this.db.prepare("UPDATE bets SET status = 'refunded' WHERE id = ?");
+      for (const b of bets) {
+        refund.run(b.id);
+        addTx(this.db, {
+          userId: b.user_id,
+          roundId: round.id,
+          betId: b.id,
+          kind: 'bet_refund',
+          amount: b.amount,
+          actorId,
+          note: 'reset round',
+          createdAt: now,
+        });
+      }
+    })();
+    this.broadcast();
+  }
+
+  /** Anula la carrera en curso y vuelve a apuestas con las apuestas intactas. */
+  resetRace(): void {
+    const round = this.currentRound();
+    if (round?.phase !== 'racing') throw new GameError('No hay una carrera en curso');
+    this.stop();
+    this.race = null;
+    this.annulRace(round.id);
+    this.broadcast();
+  }
+
+  /** Tras reiniciar el servidor, una carrera que estaba en curso se anula (FR-041). */
+  recoverOnBoot(): void {
+    const round = this.currentRound();
+    if (round?.phase === 'racing') this.annulRace(round.id);
+  }
+
+  private annulRace(roundId: number): void {
+    this.db.transaction(() => {
+      this.db
+        .prepare("UPDATE results SET status = 'annulled', ended_at = ? WHERE round_id = ? AND status = 'running'")
+        .run(this.now(), roundId);
+      this.db.prepare("UPDATE rounds SET phase = 'betting' WHERE id = ?").run(roundId);
+    })();
+  }
+
   adjustBalance(actorId: number, payload: AdjustBalancePayload): void {
     const { username, mode, value } = (payload ?? {}) as Partial<AdjustBalancePayload>;
     this.db.transaction(() => {
@@ -369,11 +421,29 @@ export class Game {
       pot,
       carry,
       horses,
-      betStatus: { placed: [], missing: [] },
+      betStatus: this.betStatus(round, bets),
       race,
       result,
       leaderboard: [],
       trackLength: TRACK_LENGTH as 40,
+    };
+  }
+
+  /** Apostaron: con apuesta en la ronda (conectados o no). Faltan: jugadores conectados sin apuesta. */
+  private betStatus(round: RoundRow | null, bets: BetRow[]): HostState['betStatus'] {
+    if (!round) return { placed: [], missing: [] };
+    const byName = (a: string, b: string) => a.localeCompare(b, 'es', { sensitivity: 'base' });
+    const bettors = new Set(bets.map((b) => b.user_id));
+    const players = this.db.prepare("SELECT id, username FROM users WHERE role = 'player'").all() as {
+      id: number;
+      username: string;
+    }[];
+    return {
+      placed: bets.map((b) => b.username).sort(byName),
+      missing: players
+        .filter((p) => this.presence.has(p.id) && !bettors.has(p.id))
+        .map((p) => p.username)
+        .sort(byName),
     };
   }
 
