@@ -1,0 +1,203 @@
+/* Solo var(--c-*): los valores los define applyCssTokens() desde src/palette.ts. */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--c-dark-blue);
+  color: var(--c-white);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 0.5em;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--c-yellow);
+}
+
+#app {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 360px;
+  margin: 10vh auto 0;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.85em;
+  color: var(--c-light-grey);
+}
+
+input,
+select {
+  min-height: 48px;
+  padding: 8px 12px;
+  font: inherit;
+  color: var(--c-black);
+  background: var(--c-white);
+  border: 3px solid var(--c-black);
+  border-radius: 0;
+}
+
+button {
+  min-height: 48px;
+  min-width: 48px;
+  padding: 8px 16px;
+  font: inherit;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--c-black);
+  background: var(--c-yellow);
+  border: 3px solid var(--c-black);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+button:active {
+  background: var(--c-orange);
+}
+
+button:disabled {
+  color: var(--c-dark-grey);
+  background: var(--c-light-grey);
+  cursor: not-allowed;
+}
+
+.error {
+  min-height: 1.4em;
+  color: var(--c-red);
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-black);
+  color: var(--c-white);
+  font-size: 1.5em;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+.overlay[hidden] {
+  display: none;
+}
+
+.is-first {
+  color: var(--c-black);
+  background: var(--c-yellow);
+}
+
+.is-last {
+  color: var(--c-white);
+  background: var(--c-dark-purple);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.card {
+  padding: 16px;
+  margin-bottom: 16px;
+  background: var(--c-black);
+  border: 3px solid var(--c-dark-grey);
+}
+
+.card[hidden] {
+  display: none;
+}
+
+.big {
+  font-size: 1.25em;
+  font-weight: bold;
+}
+
+.balance {
+  font-size: 1.25em;
+  font-weight: bold;
+  color: var(--c-peach);
+}
+
+.horses {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.horse {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  text-align: left;
+  color: var(--c-white);
+  background: var(--c-dark-blue);
+  border: 3px solid var(--c-dark-grey);
+}
+
+.horse.selected {
+  border-color: var(--c-yellow);
+  background: var(--c-dark-purple);
+}
+
+.horse .name {
+  flex: 1;
+}
+
+.horse .mult {
+  font-size: 0.85em;
+  color: var(--c-light-grey);
+}
+
+.swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2em;
+  height: 2em;
+  font-weight: bold;
+  border: 2px solid var(--c-black);
+}
