@@ -41,9 +41,16 @@ interface PlayerState {
   } | null;
   myResult: {                 // solo en 'finished'
     participated: boolean;
+    horse: HorseNumber | null;  // caballo apostado; null si no participó (US7)
     won: boolean;
     payout: number;           // 0 si perdió
     winner: HorseNumber;
+  } | null;
+  raceOrder: HorseNumber[] | null; // 'racing' y 'finished': caballos de primero a último (FR-028b)
+  myRank: {                   // solo en 'racing' y 'finished' (US7, FR-028a)
+    position: number;         // 1 = primero del leaderboard general
+    total: number;            // nº de jugadores en el leaderboard
+    score: number;            // puntaje propio
   } | null;
 }
 
@@ -91,7 +98,10 @@ interface HostState {
 
 Reglas:
 
-- `PlayerState` nunca incluye nombres, apuestas ni saldos de otros jugadores (FR-029).
+- `PlayerState` nunca incluye nombres, apuestas, puntajes ni saldos de otros jugadores
+  (FR-029); `myRank` solo expone la posición propia y el total de jugadores.
+- A los jugadores se les reenvía `state` durante la carrera solo cuando cambia `raceOrder`; el
+  host recibe todos los ticks.
 - `potentialPayout` y los pagos finales salen de la misma función `settle` (principio XI).
 
 ## Cliente → servidor (con ack)

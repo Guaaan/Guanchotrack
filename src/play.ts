@@ -107,7 +107,14 @@ function buildBetting(): typeof view {
 function buildMessage(key: string, title: string): typeof view {
   const heading = el('h2', '', title);
   const detail = el('p', 'big');
-  section.replaceChildren(heading, detail);
+  const rankLine = el('p', 'rank');
+  // bloque de carrera: lugar del caballo apostado y los 3 primeros (FR-028b)
+  const raceBlock = el('div', 'race-info');
+  const myHorseLine = el('p', 'my-horse');
+  const topTitle = el('h3');
+  const topList = el('ol', 'top3');
+  raceBlock.append(myHorseLine, topTitle, topList);
+  section.replaceChildren(heading, detail, raceBlock, rankLine);
   return {
     key,
     update(state) {
@@ -127,6 +134,32 @@ function buildMessage(key: string, title: string): typeof view {
         detail.textContent = `Ganó el ${winner.number} ${winner.name}. Saldo: ${formatCoins(state.balance)}`;
       } else {
         detail.textContent = '';
+      }
+      const order = state.raceOrder;
+      raceBlock.hidden = !order;
+      if (order) {
+        const finished = state.phase === 'finished';
+        const mine = finished ? state.myResult?.horse ?? null : state.myBet?.horse ?? null;
+        myHorseLine.hidden = mine === null;
+        if (mine !== null) {
+          const place = order.indexOf(mine) + 1;
+          myHorseLine.replaceChildren('Tu caballo: ', swatch(HORSES[mine - 1]), ` ${HORSES[mine - 1].name} · ${finished ? 'terminó' : 'va'} ${place}.º`);
+        }
+        topTitle.textContent = finished ? 'Podio' : 'Adelante';
+        topList.replaceChildren(
+          ...order.slice(0, 3).map((n, i) => {
+            const li = el('li');
+            li.append(`${i + 1}.º `, swatch(HORSES[n - 1]), ` ${HORSES[n - 1].name}`);
+            if (n === mine) li.classList.add('mine');
+            return li;
+          }),
+        );
+      }
+      // posición propia en el leaderboard general (solo carrera y resultado)
+      const rank = state.myRank;
+      rankLine.hidden = !rank;
+      if (rank) {
+        rankLine.textContent = `Ranking: ${rank.position}.º de ${rank.total} · ${rank.score} ${rank.score === 1 ? 'punto' : 'puntos'}`;
       }
     },
   };

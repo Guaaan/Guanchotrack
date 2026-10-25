@@ -24,9 +24,18 @@ export interface PlayerState {
   } | null;
   myResult: {
     participated: boolean;
+    horse: HorseNumber | null;
     won: boolean;
     payout: number;
     winner: HorseNumber;
+  } | null;
+  /** Caballos de primero a último; solo en 'racing' y 'finished' (FR-028b). */
+  raceOrder: HorseNumber[] | null;
+  /** Posición propia en el leaderboard general; solo en 'racing' y 'finished' (FR-028a). */
+  myRank: {
+    position: number;
+    total: number;
+    score: number;
   } | null;
 }
 

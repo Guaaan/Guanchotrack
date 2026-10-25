@@ -221,6 +221,43 @@ la cantidad de aciertos de cada jugador.
 
 ---
 
+### User Story 7 - Comodidad y posición en la vista móvil (Priority: P2)
+
+Tras probar el juego en celulares, la vista de jugador se ajusta para el uso real: mientras la
+carrera está en curso y al ver el resultado, cada jugador ve su posición en el leaderboard
+general ("Ranking: 3.º de 8 · 2 puntos"), sin ver nombres ni saldos de otros jugadores. Los textos
+quedan contenidos en pantallas chicas y tocar el campo de monto no hace zoom en iPhone.
+
+**Why this priority**: mejora la experiencia en el dispositivo que usa cada jugador; el juego
+ya funciona sin ello.
+
+**Independent Test**: con dos o más jugadores y alguna ronda jugada, abrir la vista de jugador
+en un celular (o a 320, 360 y 390 px de ancho) y comprobar la posición en carrera y resultado,
+que ningún texto se desborda y que el campo de monto no provoca zoom al tocarlo en iPhone.
+
+**Acceptance Scenarios**:
+
+1. **Given** 8 jugadores y "ana" tercera en el leaderboard general con 2 puntos, **When** la
+   carrera está en curso o terminó, **Then** el celular de "ana" muestra "Ranking: 3.º de 8 ·
+   2 puntos".
+2. **Given** la fase de apuestas o la espera, **When** "ana" mira su celular, **Then** no ve su
+   posición (la pantalla queda para apostar).
+3. **Given** la vista de jugador en cualquier fase, **When** se inspecciona lo que recibe,
+   **Then** no contiene nombres, puntajes ni saldos de otros jugadores (solo su posición y el
+   total de jugadores).
+4. **Given** un iPhone, **When** el jugador toca el campo de monto, **Then** la página no hace
+   zoom.
+5. **Given** un nombre de usuario de 20 caracteres o un pago con varios miles de monedas,
+   **When** se ve en un celular de 320 px de ancho, **Then** ningún texto se sale de la pantalla
+   ni de su recuadro, sin scroll horizontal.
+6. **Given** una carrera en curso y "ana" apostó al caballo 6, **When** mira su celular,
+   **Then** ve en qué lugar va su caballo ("6 Rosado · va 2.º") y los 3 caballos en punta, y
+   ambos se actualizan cuando cambia el orden de la carrera.
+7. **Given** la carrera terminó, **When** "ana" mira su celular, **Then** ve en qué lugar
+   terminó su caballo y el podio (1.º, 2.º y 3.º); quien no apostó ve solo el podio.
+
+---
+
 ### Edge Cases
 
 - **Nadie acierta**: el caballo ganador no tiene apuestas. El pozo completo se acumula para la
@@ -362,7 +399,21 @@ la cantidad de aciertos de cada jugador.
   recibiría si gana, actualizado en vivo.
 - **FR-027**: Durante la carrera, MUST mostrar el mensaje "carrera en curso, mira la pantalla".
 - **FR-028**: Al terminar, MUST mostrar si ganó o perdió (o que no participó) y su nuevo saldo.
-- **FR-029**: La vista del jugador MUST NOT mostrar la pista 3D ni datos de otros jugadores.
+- **FR-028a**: Durante la carrera y en el resultado, MUST mostrar la posición del propio jugador
+  en el leaderboard general (mismo orden que FR-034), el total de jugadores y su puntaje, p. ej.
+  "Ranking: 3.º de 8 · 2 puntos". En apuestas y en espera no se muestra.
+- **FR-028b**: Durante la carrera, la vista del jugador MUST mostrar los 3 caballos en punta y,
+  si apostó, el lugar en que va su caballo, actualizados cuando cambia el orden de la carrera;
+  al terminar, MUST mostrar el podio y el lugar final de su caballo. El orden es el mismo que
+  muestra la pantalla del host (incluido el desempate del photo finish).
+- **FR-029**: La vista del jugador MUST NOT mostrar la pista 3D ni datos de otros jugadores
+  (nombres, apuestas, puntajes o saldos); solo se permiten la posición propia y el total de
+  jugadores (FR-028a), los totales públicos por caballo (FR-025) y el orden de los caballos en
+  la carrera (FR-028b).
+- **FR-029a**: La vista del jugador MUST evitar el zoom automático al enfocar campos de texto en
+  iPhone (tamaño de letra de los campos ≥ 16 px), sin desactivar el zoom manual, y todos los
+  textos MUST quedar contenidos en su recuadro desde 320 px de ancho (cortando o partiendo
+  líneas cuando haga falta).
 
 **Vista del host**
 
@@ -465,6 +516,8 @@ la cantidad de aciertos de cada jugador.
   cuarta parte (aprox. 30 s y 15 s), con el mismo número de ticks.
 - **SC-008**: Tras recargar la página o reiniciar el sistema, ningún usuario pierde su sesión,
   saldo, puntaje ni apuestas activas.
+- **SC-010**: En la vista de jugador, desde 320 px de ancho, ningún texto se desborda de su
+  recuadro y todos los campos de texto tienen al menos 16 px de letra (sin zoom en iPhone).
 - **SC-009**: La vista de jugador es usable sin scroll horizontal en pantallas desde 360 px de
   ancho, y el texto de la vista de host es legible a 4 metros en una pantalla de 50 pulgadas.
 

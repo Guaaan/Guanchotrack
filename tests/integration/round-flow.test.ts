@@ -146,13 +146,13 @@ describe('ronda completa', () => {
     invariant();
 
     const anaEnd = await players.ana.t.waitFor((s) => s.phase === 'finished');
-    expect(anaEnd.myResult).toEqual({ participated: true, won: true, payout: 42, winner: W });
+    expect(anaEnd.myResult).toEqual({ participated: true, horse: W, won: true, payout: 42, winner: W });
     expect(anaEnd.balance).toBe(112);
     const betoEnd = await players.beto.t.waitFor((s) => s.phase === 'finished');
-    expect(betoEnd.myResult).toEqual({ participated: true, won: false, payout: 0, winner: W });
+    expect(betoEnd.myResult).toEqual({ participated: true, horse: L2, won: false, payout: 0, winner: W });
     expect(betoEnd.balance).toBe(80);
     const daniEnd = await players.dani.t.waitFor((s) => s.phase === 'finished');
-    expect(daniEnd.myResult).toEqual({ participated: false, won: false, payout: 0, winner: W });
+    expect(daniEnd.myResult).toEqual({ participated: false, horse: null, won: false, payout: 0, winner: W });
 
     expect(scoreOf(server.db, players.ana.id)).toBe(1);
     expect(scoreOf(server.db, players.carla.id)).toBe(1);

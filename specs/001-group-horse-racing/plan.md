@@ -46,7 +46,7 @@ externos, solo paleta PICO-8, monedas enteras
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Constitución v2.0.0.
+Constitución v2.0.1 (re-check 2026-10-25: sin cambios semánticos respecto de v2.0.0).
 
 | # | Principio | Cumplimiento en el diseño | Estado |
 |---|-----------|---------------------------|--------|
@@ -145,9 +145,9 @@ src/                     # cliente
     └── quantize.ts      # ShaderPass paleta PICO-8
 
 tests/
-├── unit/                # race, payouts, ranking, format, horses, motion
+├── unit/                # race, race-duration, payouts, ranking, format, horses, motion
 ├── integration/         # auth, round-flow, live-updates, sync-load, host-permissions,
-│                        # resets, recovery, race-speed
+│                        # resets, recovery, race-speed, leaderboard
 └── gates/               # palette, assets
 ```
 
@@ -227,6 +227,45 @@ Cambios pedidos tras implementar US4. Re-check de la constitución: PASA (ver ta
 - `horse.ts`: `updateGallop(horse, dt, rate)` (rate 0 = detenerse). El cuello y la cabeza van en
   un pivote que cabecea hacia adelante y abajo con la fase de la zancada; la crin está dentro de
   ese pivote y agrega un pequeño retardo de fase.
+
+## Ajustes US7: vista móvil
+
+Cambios pedidos tras probar con celulares reales. Re-check de la constitución: PASA (FR-029 se
+mantiene: el jugador solo recibe su posición y el total, nunca datos de otros; IX se refuerza).
+
+### D5. Posición propia del jugador
+
+- `PlayerState` agrega `myRank: { position: number; total: number; score: number } | null`,
+  presente solo en `racing` y `finished`; `null` en `idle` y `betting`.
+- Se calcula en `server/game.ts` con la misma función `rank()` del leaderboard general (mismo
+  orden y desempates). En `broadcast()` el ranking se calcula una sola vez y se reutiliza para
+  todos los jugadores; `playerState(userId)` lo calcula si no se le pasa.
+- `src/play.ts` muestra "Ranking: N.º de M · P puntos" bajo el mensaje de carrera y en el
+  resultado.
+
+### D6. Comodidad en celular
+
+- Campos (`input`, `select`) con `font-size` ≥ 16 px en todas las vistas (iOS hace zoom con
+  menos); el monto vive dentro de un `label` con letra más chica, por eso hoy hereda < 16 px.
+- `-webkit-text-size-adjust: 100%` y `touch-action: manipulation` en controles (sin zoom por
+  doble toque); no se toca `user-scalable` (accesibilidad).
+- Contención de textos: `overflow-wrap: anywhere` en mensajes, títulos con tamaño fluido
+  (`clamp`) y menos espaciado de letras en pantallas chicas, nombre de usuario de la cabecera con
+  elipsis.
+- Validación con Chrome sin ventana a 320, 360 y 390 px en apuestas, carrera y resultado:
+  sin scroll horizontal, sin texto desbordado, campos ≥ 16 px y controles ≥ 48 px.
+
+### D7. Orden de la carrera en el celular
+
+- `PlayerState` agrega `raceOrder: HorseNumber[] | null`: los 6 caballos de primero a último
+  (`raceOrder()` del motor, igual que `HostState.race.order`), presente en `racing` y
+  `finished`; `null` en `idle` y `betting`. Sin casillas: el celular solo necesita lugares.
+- Envío a jugadores: en cada tick se calcula el orden una vez; los snapshots de jugador se
+  emiten solo si el orden cambió respecto del último enviado (el host sigue recibiendo todos los
+  ticks). Al terminar y al reiniciar la carrera se emite siempre.
+- `src/play.ts`: en carrera, "Tu caballo: N Nombre · va X.º" (si apostó) y "Adelante" con los
+  3 primeros (insignia de color + número + nombre); en resultado, "Tu caballo terminó X.º" y el
+  podio. Se actualiza en el sitio, sin reconstruir la vista.
 
 ## Complexity Tracking
 

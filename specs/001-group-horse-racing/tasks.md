@@ -273,6 +273,38 @@ velocidad y mismo resultado con la misma semilla; en la pantalla del host, verif
 
 ---
 
+## Phase 11: User Story 7 - Comodidad y posición en la vista móvil (Priority: P2)
+
+**Goal**: Mostrar al jugador su posición en el leaderboard general durante la carrera y en el
+resultado, contener los textos en pantallas chicas y evitar el zoom de iPhone en el campo de
+monto (spec US7, FR-028a, FR-029, FR-029a, SC-010; plan D5–D6).
+
+**Independent Test**: con varios jugadores y rondas jugadas, abrir `/play` a 320, 360 y 390 px:
+posición visible solo en carrera y resultado, sin datos ajenos, sin desbordes y con campos
+≥ 16 px (spec US7).
+
+### Tests for User Story 7 ⚠️
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [X] T081 [P] [US7] Integration test `tests/integration/player-rank.test.ts`: with 4 players (one offline) and a finished round with known winners, each connected player's `PlayerState.myRank` in `finished` equals `{ position, total: 4, score }` matching the host `leaderboard` order (same `rank()` tie-breaks); `myRank` is also present in `racing` and is `null` in `idle` and `betting`; the player's `state` JSON contains no other username, score or balance
+
+### Implementation for User Story 7
+
+- [X] T082 [US7] In `shared/types.ts` add `myRank: { position: number; total: number; score: number } | null` to `PlayerState`; in `server/game.ts` compute it in `playerState(userId, ranking?)` from `rank()` (only in `racing`/`finished`), and in `broadcast()` compute the ranking once and pass it to every `playerState` call
+- [X] T083 [US7] In `src/play.ts` show "Ranking: N.º de M · P puntos" (singular "punto" when P = 1) under the racing message and in the result view, updated in place on each `state`; hidden when `myRank` is `null`
+- [X] T084 [P] [US7] In `src/styles.css` per plan D6: `input, select { font-size: max(16px, 1em) }` (also inside `label`), `-webkit-text-size-adjust: 100%` on `html`, `touch-action: manipulation` on buttons and inputs, `overflow-wrap: anywhere` on headings and messages, fluid heading sizes with `clamp()` and reduced `letter-spacing` under 420 px, header username with ellipsis; no `user-scalable=no`
+- [X] T085 [US7] Validation on a separate test instance (own port and temp DB): `/play` at 320, 360 and 390 px in `betting`, `racing` and `finished` with a 20-character username and a payout ≥ 1.000; assert no horizontal scroll, no element with `scrollWidth > clientWidth` among texts, every `input`/`select` computed `font-size` ≥ 16 px and every control ≥ 48 px tall; screenshots; fix issues found
+
+- [X] T086 [P] [US7] Integration test `tests/integration/player-race-order.test.ts` (`tickMs: 5`, fixed seed): in `racing` a player receives `raceOrder` with the 6 horses and gets several updates with different orders during the race; every update differs from the previous one (no repeated orders sent to players); at `finished` the player's `raceOrder` equals the host `race.order` and starts with `result.winner`; `raceOrder` is `null` in `idle` and `betting`; the player receives fewer `state` messages than the host during the race; still no other usernames in the player `state`
+- [X] T087 [US7] In `shared/types.ts` add `raceOrder: HorseNumber[] | null` to `PlayerState` and update `contracts/socket-events.md`; in `server/game.ts` fill it from `raceOrder(run.state)` in `racing`/`finished`, and in `tick()` emit player snapshots only when the order changed since the last one sent (split `broadcast()` into host and players; reset the remembered order on start, finish and `resetRace`)
+- [X] T088 [US7] In `src/play.ts` add a race block to the racing and result views: "Tu caballo: N Nombre · va X.º" (or "terminó X.º") when the player bet, and "Adelante" / "Podio" with the first 3 horses (color badge via `var(--c-<token>)`, number and name), updated in place on each `state`; styles in `src/styles.css` contained from 320 px
+- [X] T089 [US7] Re-run the T085 validation for the racing and result views with the new block (320/360/390 px: no horizontal scroll, no overflowing text) and update `tests/integration/live-updates.test.ts` key list for `raceOrder`
+
+**Checkpoint**: Posición propia, lugar del caballo apostado y top 3 visibles en carrera y resultado; vista móvil sin desbordes ni zoom; `player-rank` y `player-race-order` pasan
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -284,7 +316,8 @@ velocidad y mismo resultado con la misma semilla; en la pantalla del host, verif
 - **US3, US4, US5 (Phases 5–7)**: Depend on US1 (round state machine and projections); independent of each other
 - **US4b (Phase 8)**: Depends on US4 (escena 3D) and US5 (`host:resetRace`, usado en los tests de velocidad)
 - **US6 (Phase 9)**: Depends on US1; independent of US3–US4b
-- **Polish (Phase 10)**: Depends on all user stories being complete (runs last)
+- **Polish (Phase 10)**: Depends on all user stories being complete (already done before US7)
+- **US7 (Phase 11)**: Added after field testing; depends on US1 (player view) and US6 (`rank()` and leaderboard); re-run `npm test` at its checkpoint
 
 ### User Story Dependencies
 
@@ -316,6 +349,7 @@ velocidad y mismo resultado con la misma semilla; en la pantalla del host, verif
 - US4b: tests T064, T065, T066, T078 in parallel; T067, T068, T072 in parallel; server T069 → T070 → T071; visuals T073 → T074 → T075 → T076 (same files); T077 last; T079 after T071 (same file `src/host/panel.ts`)
 - US6: T056 and T057 in parallel; then T058 → T059
 - Polish: T060, T061, T062, T080 in parallel; T063 last
+- US7: T081 and T084 in parallel; then T082 → T083; T085; then T086 → T087 → T088 → T089
 
 ---
 
@@ -368,6 +402,7 @@ Task: "Create src/host/horse.ts"
 6. US4b → velocidad de carrera, pelajes, tamaño y galope continuo
 7. US6 → leaderboard general
 8. Polish → responsive, README, research al día, validación quickstart
+9. US7 → posición propia y comodidad en la vista móvil (tras probar con celulares)
 
 ---
 

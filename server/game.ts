@@ -40,6 +40,8 @@ export class GameError extends Error {}
 
 const HORSE_NUMBERS: HorseNumber[] = [1, 2, 3, 4, 5, 6];
 
+type Ranking = (HostState['leaderboard'][number] & { id: number })[];
+
 interface RoundRow {
   id: number;
   phase: 'betting' | 'racing' | 'finished';
@@ -81,6 +83,8 @@ export class Game {
   /** Carrera de la ronda actual (en curso o terminada), solo en memoria. */
   private race: RaceRun | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
+  /** Último orden de carrera enviado a los jugadores: solo se reenvía cuando cambia. */
+  private sentPlayerOrder: string | null = null;
 
   constructor({
     db,
@@ -230,8 +234,14 @@ export class Game {
   private tick(): void {
     if (!this.race) return this.stop();
     this.race.state = stepRace(this.race.state);
-    if (this.race.state.finished) this.finishRace();
-    else this.emit('host', this.hostState());
+    if (this.race.state.finished) {
+      this.finishRace();
+      return;
+    }
+    const ranking = this.ranking();
+    this.emit('host', this.hostState(ranking));
+    // a los celulares solo cuando cambia el orden de los caballos
+    if (JSON.stringify(raceOrder(this.race.state)) !== this.sentPlayerOrder) this.broadcastPlayers(ranking);
   }
 
   private finishRace(): void {
@@ -351,7 +361,8 @@ export class Game {
 
   // ---------- proyecciones ----------
 
-  playerState(userId: number): PlayerState {
+  /** Snapshot del jugador; `ranking` permite reutilizar el leaderboard ya calculado en `broadcast()`. */
+  playerState(userId: number, ranking?: Ranking): PlayerState {
     const user = this.db.prepare('SELECT username FROM users WHERE id = ?').get(userId) as { username: string } | undefined;
     const round = this.currentRound();
     const phase: Phase = round?.phase ?? 'idle';
@@ -364,8 +375,21 @@ export class Game {
       odds: [],
       myBet: null,
       myResult: null,
+      raceOrder: null,
+      myRank: null,
     };
     if (!round) return state;
+    if (phase === 'racing' || phase === 'finished') {
+      // orden público de los caballos; nunca casillas ni datos de jugadores
+      const run = this.raceFor(round);
+      if (run) state.raceOrder = raceOrder(run.state);
+    }
+    if (phase === 'racing' || phase === 'finished') {
+      // solo la posición propia y el total: nunca datos de otros jugadores (FR-029)
+      const board = ranking ?? this.ranking();
+      const index = board.findIndex((r) => r.id === userId);
+      if (index >= 0) state.myRank = { position: index + 1, total: board.length, score: board[index].score };
+    }
 
     const bets = this.roundBets(round.id);
     const inputs = bets.map(toInput);
@@ -380,6 +404,7 @@ export class Game {
     if (phase === 'finished' && round.winner_horse) {
       state.myResult = {
         participated: Boolean(mine),
+        horse: mine?.horse ?? null,
         won: mine?.status === 'won',
         payout: mine?.payout ?? 0,
         winner: round.winner_horse,
@@ -388,7 +413,7 @@ export class Game {
     return state;
   }
 
-  hostState(): HostState {
+  hostState(ranking?: Ranking): HostState {
     const round = this.currentRound();
     const phase: Phase = round?.phase ?? 'idle';
     const carry = this.carryFor(round);
@@ -448,7 +473,7 @@ export class Game {
       betStatus: this.betStatus(round, bets),
       race,
       result,
-      leaderboard: this.leaderboard(),
+      leaderboard: (ranking ?? this.ranking()).map(({ id: _id, ...row }) => row),
       trackLength: TRACK_LENGTH as 40,
     };
   }
@@ -471,8 +496,8 @@ export class Game {
     };
   }
 
-  /** Todos los jugadores (nunca el host) con puntaje = apuestas ganadas y saldo derivado. */
-  private leaderboard(): HostState['leaderboard'] {
+  /** Leaderboard general: todos los jugadores (nunca el host) con puntaje = apuestas ganadas y saldo derivado. */
+  private ranking(): Ranking {
     const rows = this.db
       .prepare(
         `SELECT u.id, u.username,
@@ -481,7 +506,7 @@ export class Game {
          FROM users u WHERE u.role = 'player'`,
       )
       .all() as { id: number; username: string; score: number; balance: number }[];
-    return rank(rows.map((r) => ({ username: r.username, score: r.score, balance: r.balance, online: this.presence.has(r.id) })));
+    return rank(rows.map((r) => ({ ...r, online: this.presence.has(r.id) })));
   }
 
   private odds(bets: BetRow[], carry: number) {
@@ -494,10 +519,18 @@ export class Game {
 
   /** Emite el snapshot del host a la sala `host` y el propio a cada jugador conectado. */
   broadcast(): void {
-    this.emit('host', this.hostState());
-    const players = this.db.prepare("SELECT id FROM users WHERE role = 'player'").all() as { id: number }[];
-    for (const { id } of players) {
-      if (this.presence.has(id)) this.emit({ userId: id }, this.playerState(id));
+    const ranking = this.ranking();
+    this.emit('host', this.hostState(ranking));
+    this.broadcastPlayers(ranking);
+  }
+
+  /** Emite su snapshot a cada jugador conectado y recuerda el orden de carrera enviado. */
+  private broadcastPlayers(ranking: Ranking): void {
+    const round = this.currentRound();
+    const run = round && (round.phase === 'racing' || round.phase === 'finished') ? this.raceFor(round) : null;
+    this.sentPlayerOrder = run ? JSON.stringify(raceOrder(run.state)) : null;
+    for (const { id } of ranking) {
+      if (this.presence.has(id)) this.emit({ userId: id }, this.playerState(id, ranking));
     }
   }
 }
