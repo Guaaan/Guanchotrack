@@ -12,6 +12,7 @@ import type {
 import { addTx, balanceOf, carryBalance, type Db } from './db';
 import { multipliers, settle, type BetInput } from './domain/payouts';
 import { createRace, raceOrder, stepRace, type RaceState } from './domain/race';
+import { rank } from './domain/ranking';
 
 export type EmitTarget = 'host' | { userId: number };
 export type Emit = (target: EmitTarget, state: HostState | PlayerState) => void;
@@ -447,7 +448,7 @@ export class Game {
       betStatus: this.betStatus(round, bets),
       race,
       result,
-      leaderboard: [],
+      leaderboard: this.leaderboard(),
       trackLength: TRACK_LENGTH as 40,
     };
   }
@@ -468,6 +469,19 @@ export class Game {
         .map((p) => p.username)
         .sort(byName),
     };
+  }
+
+  /** Todos los jugadores (nunca el host) con puntaje = apuestas ganadas y saldo derivado. */
+  private leaderboard(): HostState['leaderboard'] {
+    const rows = this.db
+      .prepare(
+        `SELECT u.id, u.username,
+                (SELECT COUNT(*) FROM bets b WHERE b.user_id = u.id AND b.status = 'won') AS score,
+                (SELECT COALESCE(SUM(t.amount), 0) FROM coin_transactions t WHERE t.user_id = u.id) AS balance
+         FROM users u WHERE u.role = 'player'`,
+      )
+      .all() as { id: number; username: string; score: number; balance: number }[];
+    return rank(rows.map((r) => ({ username: r.username, score: r.score, balance: r.balance, online: this.presence.has(r.id) })));
   }
 
   private odds(bets: BetRow[], carry: number) {

@@ -92,6 +92,20 @@ describe('velocidad de carrera (FR-009a)', () => {
     expect(h.race!.tickMs).toBe(2);
   });
 
+  it('photo finish: el resultado lista a los empatados y el orden final empieza por el ganador (FR-033)', async () => {
+    await hostDo('host:startRace', { speed: 'turbo' });
+    const h = await hostT.waitFor((s) => s.phase === 'finished', 15_000);
+    const tied = h.result!.photoFinish!;
+    const atFinish = (Object.entries(h.race!.positions) as [string, number][])
+      .filter(([, square]) => square === 40)
+      .map(([horse]) => Number(horse));
+    expect(tied.map((t) => t.horse).sort()).toEqual(atFinish.sort());
+    expect(tied.length).toBeGreaterThanOrEqual(2);
+    expect(h.race!.order[0]).toBe(h.result!.winner);
+    const byValue = [...tied].sort((a, b) => b.value - a.value).map((t) => t.horse);
+    expect(h.race!.order.slice(0, tied.length)).toEqual(byValue);
+  });
+
   it('misma semilla: Normal y Turbo dan el mismo resultado; Turbo tarda menos', async () => {
     let t0 = Date.now();
     await hostDo('host:startRace', { speed: 'normal' });

@@ -34,9 +34,16 @@ Debe pasar todo, incluyendo:
 | `race` | misma semilla ⇒ misma carrera; photo finish con semilla conocida; 40 casillas |
 | `payouts` | ejemplos de la spec (pozo 60, 2×; todos al mismo caballo 1×; acumulado 60 + 40 ⇒ 5×; 100 entre 3 ⇒ 34/33/33); nadie acierta ⇒ acumula; Σpagos = pozo |
 | `ranking` | orden por puntaje, saldo, nombre; primero/último |
-| `auth` | autocreación; contraseña incorrecta; nombre inválido; host por env |
+| `race-duration` | SC-007: en Normal ≥ 90 % de carreras entre 45 y 90 s; Rápida y Turbo, la mitad y la cuarta parte |
+| `horses` / `motion` | velocidades y pelajes por número; cadencia del galope y movimiento sin saltos |
+| `format` | multiplicador `2,35×` y miles con punto |
+| `auth` | autocreación; contraseña incorrecta; nombre inválido; host por env; límite de intentos |
+| `round-flow` | ronda completa, cambios de apuesta, pagos y acumulado; invariante de [data-model.md](./data-model.md#invariante-de-conservación-principio-xii) tras cada paso |
+| `live-updates` / `sync-load` | actualizaciones < 1 s, privacidad del jugador, "apostaron/faltan"; 20 jugadores sincronizados |
 | `host-permissions` | cada `host:*` desde jugador ⇒ "No autorizado" sin efectos |
-| `conservation` | invariante de [data-model.md](./data-model.md#invariante-de-conservación-principio-xii) tras apostar, cambiar, reiniciar ronda/carrera, liquidar y ajustar |
+| `resets` | reiniciar ronda y carrera conservando monedas y acumulado |
+| `race-speed` | velocidad solo del host y antes de iniciar; misma semilla ⇒ mismo resultado; photo finish con empatados y orden |
+| `leaderboard` | orden por aciertos, monedas y nombre; sin el host; conectados |
 | `recovery` | servidor reiniciado en `racing` ⇒ `betting` con apuestas intactas |
 | `palette` / `assets` | sin colores fuera de `src/palette.ts`; sin assets externos |
 
@@ -52,9 +59,10 @@ Debe pasar todo, incluyendo:
    al 2 ⇒ host muestra pozo 60, multiplicadores 2,00× en 1 y 2, pagos 60/20/40, "faltan" vacío.
    Cada celular ve su caballo, monto y "recibirías". `beto` cambia a 20 ⇒ todo se recalcula en
    menos de 1 s.
-5. **Carrera** (US1, US4): iniciar carrera ⇒ celulares muestran "carrera en curso, mira la
-   pantalla"; los caballos galopan, la cámara sigue al líder y el leaderboard de carrera se
-   reordena. Dura ~1 minuto.
+5. **Carrera** (US1, US4, US4b): elegir velocidad (Normal, Rápida o Turbo) e iniciar carrera ⇒
+   celulares muestran "carrera en curso, mira la pantalla"; los caballos galopan sin parar con su
+   pelaje, la cámara sigue al líder y el leaderboard de carrera se reordena. En Normal dura ~1
+   minuto; en Rápida ~30 s; en Turbo ~15 s.
 6. **Resultado** (US1): host muestra ganador, acertantes y pagos; celulares muestran
    ganó/perdió y saldo nuevo; el leaderboard general suma +1 a los acertantes. Los pagos
    coinciden con los "recibirías" del paso 4.

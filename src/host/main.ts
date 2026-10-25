@@ -1,18 +1,22 @@
 import type { HostState } from '../../shared/types';
 import { connect } from '../net';
 import { guard } from '../session';
-import { mountPanel, renderBetting, renderControls, renderRaceBoard, renderResult } from './panel';
+import { mountPanel, renderBetting, renderControls, renderLeaderboard, renderRaceBoard, renderResult } from './panel';
 import { createScene } from './scene';
 
 document.body.classList.add('host');
 const { main } = await guard('host');
 main.className = 'host-layout';
+const left = document.createElement('div');
+left.className = 'main-column';
 const stage = document.createElement('div');
 stage.className = 'stage';
+const bottom = document.createElement('div');
+left.append(stage, bottom);
 const side = document.createElement('div');
 side.className = 'side';
-main.append(stage, side);
-mountPanel(side);
+main.append(left, side);
+mountPanel(side, bottom);
 
 const scene = createScene(stage);
 
@@ -28,6 +32,7 @@ connect((state) => {
   renderControls(s);
   renderBetting(s);
   renderRaceBoard(s);
+  renderLeaderboard(s);
 
   if (s.phase === 'finished' && prevPhase !== 'finished') {
     resultReady = false;

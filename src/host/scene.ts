@@ -208,11 +208,20 @@ export function createScene(container: HTMLElement): RaceScene {
         snapToStart();
         if (!race) return;
       }
+      // al entrar a mitad de carrera (o con la ronda terminada) no hay historial: se coloca todo en su sitio
+      const joining = tick === 0 && race.tick > 0;
       tick = race.tick;
       tickMs = race.tickMs;
       racing = phase === 'racing';
       for (const [horse, square] of Object.entries(race.positions)) {
         targets[Number(horse as unknown as HorseNumber) - 1] = square;
+      }
+      if (joining) {
+        targets.forEach((square, i) => {
+          motion[i] = { x: squareToX(square), v: 0 };
+          horses[i].position.x = motion[i].x;
+        });
+        camX = Math.max(Math.min(Math.max(...targets.map(squareToX)), finishX) - LEADER_LEAD, 0);
       }
       history.set(tick, [...targets]);
       for (const t of history.keys()) if (t < tick - HISTORY_TICKS) history.delete(t);

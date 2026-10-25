@@ -85,6 +85,11 @@ constitución v2.0.0 lo exige. No quedan NEEDS CLARIFICATION.
 - **Alternatives considered**: `seedrandom` (dependencia para 10 líneas); precalcular toda la
   carrera al iniciarla (riesgo de filtrar el resultado y complica reinicios).
 
+- **Actualización US4b**: el intervalo del tick depende de la velocidad que el host elige al
+  iniciar (Normal 200 ms, Rápida 100 ms, Turbo 50 ms); el motor y el consumo del RNG no cambian,
+  así que con la misma semilla el resultado es idéntico en cualquier velocidad. Ver plan
+  "Ajustes US4b" D1.
+
 ## R7. Pagos parimutuel con redondeo
 
 - **Decision**: función pura `settle(bets, carry, winner)` →
@@ -145,6 +150,10 @@ constitución v2.0.0 lo exige. No quedan NEEDS CLARIFICATION.
 - **Alternatives considered**: fuente pixel embebida (es un asset); fuente bitmap dibujada a
   mano en canvas (YAGNI).
 
+- **Actualización US4b**: los números de las mantas usan la pila sans-serif del sistema
+  (`system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`) en peso normal,
+  con contorno fino de contraste; la UI sigue con la pila monoespaciada. Ver plan D3.
+
 ## R12. Modelo 3D procedural
 
 - **Decision**: `createHorse({ colorToken, number })` según lo pedido: cuerpo `CapsuleGeometry`,
@@ -164,6 +173,13 @@ constitución v2.0.0 lo exige. No quedan NEEDS CLARIFICATION.
 - **Photo finish**: si el `state` final trae `photoFinish`, la cámara se acerca a la línea de
   meta, se congela la imagen ~1,5 s con un destello `white` y un rótulo "PHOTO FINISH" antes de
   mostrar el resultado.
+
+- **Actualización US4/US4b**: la fábrica es `createHorse({ color, number, coat })` con pelajes
+  fijos por número (castaño, pinto con manchas deterministas, tordo, palomino) y crin separada;
+  las piezas de pelaje llevan contorno negro para separarse de la tierra `brown`; el galope es
+  continuo durante la carrera con cadencia según la racha de los últimos 10 ticks, cabeceo del
+  cuello y posición con resorte críticamente amortiguado (`src/host/motion.ts`). Escala 1,5×,
+  carriles de 4,2 unidades y render interno a 0,75. Ver plan D2–D4.
 
 ## R13. Vista de jugador sin framework
 

@@ -168,10 +168,12 @@ button:disabled {
 }
 
 .horse {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 0 8px;
   padding: 8px;
+  letter-spacing: 0.04em;
   text-align: left;
   color: var(--c-white);
   background: var(--c-dark-blue);
@@ -183,8 +185,15 @@ button:disabled {
   background: var(--c-dark-purple);
 }
 
-.horse .name {
-  flex: 1;
+.horse .swatch {
+  grid-row: span 2;
+}
+
+.horse .name,
+.horse .mult {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .horse .mult {
@@ -274,9 +283,16 @@ button[hidden] {
   align-items: start;
 }
 
+.main-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
 .stage {
   position: relative;
-  height: calc(100vh - 100px);
+  height: calc(100vh - 290px);
   min-height: 360px;
   border: 3px solid var(--c-black);
   background: var(--c-dark-blue);
@@ -347,4 +363,78 @@ button[hidden] {
   .side {
     max-height: none;
   }
+}
+
+/* Leaderboard general bajo la escena: columnas compactas para que quepa sin scroll. */
+.leaderboard {
+  margin-bottom: 0;
+}
+
+.leaderboard h2 {
+  margin-bottom: 8px;
+}
+
+.leaderboard ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 4px 16px;
+  max-height: 110px;
+  overflow-y: auto;
+}
+
+.leaderboard li {
+  display: grid;
+  grid-template-columns: 2.5em minmax(0, 1fr) auto auto 1.2em;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 6px;
+}
+
+.leaderboard .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard .score {
+  font-weight: bold;
+}
+
+.leaderboard .online {
+  color: var(--c-green);
+}
+
+.leaderboard .offline {
+  color: var(--c-dark-grey);
+}
+
+.leaderboard .is-first .online,
+.leaderboard .is-first .offline {
+  color: var(--c-dark-blue);
+}
+
+.final-order {
+  margin: 0;
+  padding-left: 1.5em;
+}
+
+/* Vista host: texto escalado al ancho para leerse a 4 m en una pantalla de 50" (SC-009). */
+body.host {
+  font-size: clamp(16px, 1.2vw, 30px);
+}
+
+/* Vista jugador: sin scroll horizontal desde 360 px. */
+@media (max-width: 420px) {
+  #app {
+    padding: 12px;
+  }
+
+  .horse {
+    padding: 6px;
+    gap: 6px;
+  }
+
 }

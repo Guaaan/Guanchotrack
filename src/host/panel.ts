@@ -182,9 +182,37 @@ const racePanel = el('section', 'card stack race-board');
 const raceList = el('ol');
 racePanel.append(el('h2', '', 'Carrera'), raceList);
 
-/** Monta los paneles en `root` (una sola vez). */
-export function mountPanel(root: HTMLElement): void {
-  root.append(controls, racePanel, bettingPanel, resultPanel);
+// Leaderboard general: siempre visible bajo la escena 3D.
+const leaderboardPanel = el('section', 'card leaderboard');
+const leaderboardList = el('ol');
+leaderboardPanel.append(el('h2', '', 'Leaderboard'), leaderboardList);
+
+/** Monta los paneles laterales en `root` y el leaderboard en `bottom` (una sola vez). */
+export function mountPanel(root: HTMLElement, bottom: HTMLElement): void {
+  // primero la información de la fase (lo que mira el público), después los controles del host
+  root.append(racePanel, bettingPanel, resultPanel, controls);
+  bottom.append(leaderboardPanel);
+}
+
+export function renderLeaderboard(state: HostState): void {
+  if (state.leaderboard.length === 0) {
+    leaderboardList.replaceChildren(el('li', 'empty', 'Aún no hay jugadores'));
+    return;
+  }
+  leaderboardList.replaceChildren(
+    ...state.leaderboard.map((p, i) => {
+      const li = el('li', [p.isFirst ? 'is-first' : '', p.isLast ? 'is-last' : ''].join(' ').trim());
+      li.append(
+        el('span', 'pos', `${i + 1}.`),
+        el('span', 'name', p.username),
+        el('span', 'score', `${p.score} pts`),
+        el('span', 'coins', formatCoins(p.balance)),
+        el('span', p.online ? 'online' : 'offline', p.online ? '●' : '○'),
+      );
+      li.title = p.online ? 'Conectado' : 'Desconectado';
+      return li;
+    }),
+  );
 }
 
 export function renderRaceBoard(state: HostState): void {
@@ -251,7 +279,25 @@ export function renderResult(state: HostState): void {
   const title = el('h2');
   title.append('Ganó ', horseBadge(result.winner), ` ${winner.name}`);
   const nodes: HTMLElement[] = [title];
-  if (result.photoFinish) nodes.push(el('p', 'big', 'PHOTO FINISH'));
+  if (result.photoFinish) {
+    // empatados en la meta, del más cercano a la meta al más lejano (FR-033)
+    nodes.push(el('p', 'big', 'PHOTO FINISH'));
+    const tied = el('p', 'row');
+    tied.append('Empataron: ');
+    for (const t of [...result.photoFinish].sort((a, b) => b.value - a.value)) {
+      tied.append(horseBadge(t.horse), ` ${HORSES[t.horse - 1].name} `);
+    }
+    nodes.push(tied);
+  }
+  if (state.race) {
+    const order = el('ol', 'final-order');
+    for (const h of state.race.order) {
+      const li = el('li', 'row');
+      li.append(horseBadge(h), ` ${HORSES[h - 1].name}`);
+      order.append(li);
+    }
+    nodes.push(el('h3', '', 'Orden final'), order);
+  }
   if (result.winners.length > 0) {
     const list = el('ul');
     for (const w of result.winners) list.append(el('li', '', `${w.username} — ${formatCoins(w.payout)}`));

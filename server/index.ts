@@ -9,7 +9,7 @@ import express from 'express';
 import { Server } from 'socket.io';
 import type { RaceSpeed } from '../shared/horses';
 import { authRouter } from './auth';
-import { openDb, type Db } from './db';
+import { checkInvariant, openDb, type Db } from './db';
 import { Game } from './game';
 import { attachSocket } from './socket';
 
@@ -99,6 +99,12 @@ export async function createApp(opts: AppOptions): Promise<App> {
   }
 
   game.recoverOnBoot();
+  // Auditoría de conservación de monedas (principio XII): no bloquea el arranque, solo avisa.
+  if (!checkInvariant(db)) {
+    console.warn(
+      '⚠ El libro de movimientos no cumple el invariante de conservación de monedas. Revisa coin_transactions y bets antes de seguir jugando.',
+    );
+  }
   attachSocket(io, db, game);
 
   await new Promise<void>((resolve) => httpServer.listen(opts.port, '0.0.0.0', resolve));
