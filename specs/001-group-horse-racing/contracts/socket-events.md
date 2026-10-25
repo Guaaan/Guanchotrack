@@ -68,6 +68,8 @@ interface HostState {
     tick: number;
     positions: Record<HorseNumber, number>;   // casilla 0–40
     order: HorseNumber[];                     // primero a último
+    speed: 'normal' | 'fast' | 'turbo';       // elegida al iniciar (US4b)
+    tickMs: number;                           // ms por tick de esa velocidad
   } | null;                   // presente en 'racing' y 'finished'
   result: {
     winner: HorseNumber;
@@ -101,11 +103,13 @@ Tras un `ok`, el servidor emite `state` a todos los afectados.
 |--------|-----|---------|---------|
 | `bet:place` | player | `{ horse: 1–6, amount: int ≥ 1 }` | fase distinta de `betting`; saldo insuficiente; valores inválidos |
 | `host:openRound` | host | `{}` | ya hay ronda en `betting`/`racing` |
-| `host:startRace` | host | `{}` | fase distinta de `betting` |
+| `host:startRace` | host | `{ speed?: 'normal' \| 'fast' \| 'turbo' }` (sin `speed` ⇒ `normal`) | fase distinta de `betting`; `"Velocidad no válida"` |
 | `host:resetRound` | host | `{}` | fase distinta de `betting` |
 | `host:resetRace` | host | `{}` | fase distinta de `racing` |
 | `host:adjustBalance` | host | `{ username, mode: 'set' \| 'add' \| 'subtract', value: int ≥ 0 }` | jugador inexistente o es host; saldo resultante negativo |
 
+- `host:startRace` fija la velocidad de esa carrera (Normal 200 ms, Rápida 100 ms, Turbo 50 ms por
+  tick). No hay evento para cambiarla: con la carrera en curso, `host:startRace` se rechaza.
 - `bet:place` crea la apuesta o la reemplaza (cambio de caballo y/o monto) — FR-016/FR-018.
 - Cualquier evento `host:*` desde un socket sin rol host ⇒ `{ ok: false, error: "No autorizado" }`
   y no tiene efectos (FR-038).

@@ -1,3 +1,5 @@
+import type { RaceSpeed } from './horses';
+
 export type Phase = 'idle' | 'betting' | 'racing' | 'finished';
 export type HorseNumber = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -49,6 +51,8 @@ export interface HostState {
     tick: number;
     positions: Record<HorseNumber, number>;
     order: HorseNumber[];
+    speed: RaceSpeed;
+    tickMs: number;
   } | null;
   result: {
     winner: HorseNumber;
@@ -72,6 +76,10 @@ export type Ack = { ok: true } | { ok: false; error: string };
 export interface BetPlacePayload {
   horse: HorseNumber;
   amount: number;
+}
+
+export interface StartRacePayload {
+  speed?: RaceSpeed;
 }
 
 export interface AdjustBalancePayload {

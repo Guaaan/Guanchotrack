@@ -1,5 +1,5 @@
 import type { Server, Socket } from 'socket.io';
-import type { Ack, AdjustBalancePayload, BetPlacePayload } from '../shared/types';
+import type { Ack, AdjustBalancePayload, BetPlacePayload, StartRacePayload } from '../shared/types';
 import { parseCookies, SESSION_COOKIE, userFromToken } from './auth';
 import type { Db } from './db';
 import { GameError, type Game } from './game';
@@ -59,7 +59,10 @@ export function attachSocket(io: Server, db: Db, game: Game): void {
 
     on('bet:place', (s, payload, ack) => run(ack, () => game.placeBet(s.data.userId, payload as BetPlacePayload)));
     on('host:openRound', hostOnly((_s, _p, ack) => run(ack, () => game.openRound())));
-    on('host:startRace', hostOnly((_s, _p, ack) => run(ack, () => game.startRace())));
+    on(
+      'host:startRace',
+      hostOnly((_s, payload, ack) => run(ack, () => game.startRace((payload as StartRacePayload | null)?.speed))),
+    );
     on('host:resetRound', hostOnly((s, _p, ack) => run(ack, () => game.resetRound(s.data.userId))));
     on('host:resetRace', hostOnly((_s, _p, ack) => run(ack, () => game.resetRace())));
     on(

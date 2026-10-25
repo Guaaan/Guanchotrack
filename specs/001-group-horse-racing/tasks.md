@@ -164,13 +164,13 @@ de host (spec US4).
 
 ### Implementation for User Story 4
 
-- [ ] T042 [P] [US4] Create `src/host/quantize.ts`: `createQuantizePass()` returning a `ShaderPass` (from `three/examples/jsm/postprocessing/ShaderPass.js`) whose fragment shader maps each pixel to the nearest of the 16 `PALETTE` colors (uniform `vec3[16]` built from `src/palette.ts`, Euclidean RGB distance), no dithering (research R10)
-- [ ] T043 [P] [US4] Create `src/host/track.ts`: `createTrack()` returning a `THREE.Group` with 6 lanes × 40 squares (square length constant, e.g. 2 units), dirt `brown`, lane lines `white`, grass `dark-green` around, start line and checkered finish line via `CanvasTexture` (`black`/`white`, drawn with palette values), `MeshLambertMaterial`; export `squareToX(square)` and `laneZ(index)`
-- [ ] T044 [P] [US4] Create `src/host/horse.ts`: module-level shared geometries; `createHorse({ color, numberColor, number })` returning a `THREE.Group` with body `CapsuleGeometry`, neck and head `BoxGeometry`, 4 legs `CylinderGeometry` each inside a hip pivot `Group`, tail `ConeGeometry`, rider (torso box, head low-poly sphere, helmet half sphere); coat `brown` shared material; saddle cloth and rider shirt in the horse `color`; number on a `CanvasTexture` (background `color`, digit `numberColor`, system monospace bold) on both cloth sides and rider back; `MeshLambertMaterial`; export `updateGallop(horse, dt, moving)` — legs `rotation.z = sin(phase + offset) * A` with front/back pairs in counter-phase, body bob `|sin(phase)| * h`, legs ease back to 0 when not moving (research R12)
-- [ ] T045 [US4] Create `src/host/scene.ts`: `createScene(container)` with `WebGLRenderer({ antialias: false })`, background `dark-blue`, high ambient + soft directional light, perspective side camera, `EffectComposer` with `RenderPass` + quantize pass, resize handling, `requestAnimationFrame` loop; `setRace(race | null)` storing target squares; per frame exponential lerp of each horse x toward `squareToX(target)`, `updateGallop(moving = |target − x| > ε)`, camera x lerped toward the leading horse; when `setRace(null)` is called (betting/idle phase, e.g. after `host:resetRace`) or targets reset to 0, snap all horses to square 0 and stop the gallop
-- [ ] T046 [US4] Add photo finish sequence to `src/host/scene.ts`: when a `state` arrives with `phase 'finished'` and `result.photoFinish`, move camera close to the finish line, freeze for ~1.5 s with a `white` flash overlay and a "PHOTO FINISH" label (DOM); expose `scene.whenIdle(): Promise<void>` that resolves when the sequence ends (immediately if there is none)
-- [ ] T047 [US4] Add `renderRaceBoard(state)` to `src/host/panel.ts`: during `racing` list `race.order` first to last with horse color/number, current square and usernames that bet on each horse (from `horses[].bets`)
-- [ ] T048 [US4] Wire `src/host/main.ts`: layout with 3D canvas as protagonist and side/bottom panels; on each `state` call `scene.setRace(state.race)` and the panel renderers for the current phase; when entering `finished`, await `scene.whenIdle()` before calling `renderResult` so the photo finish plays before the result panel
+- [X] T042 [P] [US4] Create `src/host/quantize.ts`: `createQuantizePass()` returning a `ShaderPass` (from `three/examples/jsm/postprocessing/ShaderPass.js`) whose fragment shader maps each pixel to the nearest of the 16 `PALETTE` colors (uniform `vec3[16]` built from `src/palette.ts`, Euclidean RGB distance), no dithering (research R10)
+- [X] T043 [P] [US4] Create `src/host/track.ts`: `createTrack()` returning a `THREE.Group` with 6 lanes × 40 squares (square length constant, e.g. 2 units), dirt `brown`, lane lines `white`, grass `dark-green` around, start line and checkered finish line via `CanvasTexture` (`black`/`white`, drawn with palette values), `MeshLambertMaterial`; export `squareToX(square)` and `laneZ(index)`
+- [X] T044 [P] [US4] Create `src/host/horse.ts`: module-level shared geometries; `createHorse({ color, numberColor, number })` returning a `THREE.Group` with body `CapsuleGeometry`, neck and head `BoxGeometry`, 4 legs `CylinderGeometry` each inside a hip pivot `Group`, tail `ConeGeometry`, rider (torso box, head low-poly sphere, helmet half sphere); coat `brown` shared material; saddle cloth and rider shirt in the horse `color`; number on a `CanvasTexture` (background `color`, digit `numberColor`, system monospace bold) on both cloth sides and rider back; `MeshLambertMaterial`; export `updateGallop(horse, dt, moving)` — legs `rotation.z = sin(phase + offset) * A` with front/back pairs in counter-phase, body bob `|sin(phase)| * h`, legs ease back to 0 when not moving (research R12)
+- [X] T045 [US4] Create `src/host/scene.ts`: `createScene(container)` with `WebGLRenderer({ antialias: false })`, background `dark-blue`, high ambient + soft directional light, perspective side camera, `EffectComposer` with `RenderPass` + quantize pass, resize handling, `requestAnimationFrame` loop; `setRace(race | null)` storing target squares; per frame exponential lerp of each horse x toward `squareToX(target)`, `updateGallop(moving = |target − x| > ε)`, camera x lerped toward the leading horse; when `setRace(null)` is called (betting/idle phase, e.g. after `host:resetRace`) or targets reset to 0, snap all horses to square 0 and stop the gallop
+- [X] T046 [US4] Add photo finish sequence to `src/host/scene.ts`: when a `state` arrives with `phase 'finished'` and `result.photoFinish`, move camera close to the finish line, freeze for ~1.5 s with a `white` flash overlay and a "PHOTO FINISH" label (DOM); expose `scene.whenIdle(): Promise<void>` that resolves when the sequence ends (immediately if there is none)
+- [X] T047 [US4] Add `renderRaceBoard(state)` to `src/host/panel.ts`: during `racing` list `race.order` first to last with horse color/number, current square and usernames that bet on each horse (from `horses[].bets`)
+- [X] T048 [US4] Wire `src/host/main.ts`: layout with 3D canvas as protagonist and side/bottom panels; on each `state` call `scene.setRace(state.race)` and the panel renderers for the current phase; when entering `finished`, await `scene.whenIdle()` before calling `renderResult` so the photo finish plays before the result panel
 
 **Checkpoint**: Carrera 3D visible y sincronizada; panel de carrera en vivo
 
@@ -233,6 +233,43 @@ verificar saldos, apuestas e historial; intentar acciones de host como jugador (
 
 ---
 
+## Phase 10: US4b - Ajustes visuales y velocidad (Priority: P2)
+
+**Goal**: El host elige la velocidad de cada carrera (Normal 200 ms, Rápida 100 ms, Turbo 50 ms)
+antes de iniciarla; los caballos son ~1,5× más grandes, tienen pelaje fijo por número, números
+más finos con contorno de contraste y un galope continuo con cadencia según su racha,
+cabeceo y crin, con posición amortiguada sin saltos (spec FR-009a, FR-030a–c; plan "Ajustes US4b").
+
+**Independent Test**: Correr una carrera en cada velocidad y comprobar duración, registro de la
+velocidad y mismo resultado con la misma semilla; en la pantalla del host, verificar pelajes,
+6 carriles visibles, números legibles y galope continuo (spec US4, escenarios 4–9).
+
+### Tests for US4b ⚠️
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [X] T064 [P] [US4b] Integration test `tests/integration/race-speed.test.ts` (createApp con `tickMsBySpeed` de test, p. ej. `{ normal: 8, fast: 4, turbo: 2 }`): `host:startRace` sin payload ⇒ `results.speed = 'normal'` y `HostState.race.speed = 'normal'`, `race.tickMs = 8`; con `{ speed: 'fast' }` y `{ speed: 'turbo' }` ⇒ se guarda esa velocidad; valores no permitidos (`'ultra'`, `50`, `null`, `{}`) ⇒ `{ ok: false, error: "Velocidad no válida" }`, la ronda sigue en `betting` y no se inserta fila en `results`; desde un socket de jugador ⇒ `"No autorizado"` sin efectos; con la carrera en curso, `host:startRace` con otra velocidad se rechaza y `results.speed` no cambia; tras `host:resetRace` se puede reiniciar con otra velocidad y la nueva fila de `results` la registra; misma semilla (`seedFn` fija) en dos rondas, una `normal` y otra `turbo` ⇒ mismos `winner_horse`, `final_order`, `photo_finish` y `ticks`, y la carrera turbo tarda menos en tiempo real; `checkInvariant()` se cumple
+- [X] T065 [P] [US4b] Unit test `tests/unit/horses.test.ts`: `RACE_SPEEDS` es exactamente `{ normal: 200, fast: 100, turbo: 50 }` y `DEFAULT_SPEED = 'normal'`; pelajes por número 1 castaño, 2 pinto, 3 tordo, 4 palomino, 5 pinto, 6 castaño; `COATS` usa exactamente los tokens del plan D2 y todos son claves de `PALETTE`
+- [X] T066 [P] [US4b] Unit test `tests/unit/motion.test.ts` per plan D4: `advancesInWindow` cuenta avances en los últimos 10 ticks (y usa los disponibles si hay menos); `gallopRate` es > 0 con 0 avances, crece de forma monótona con los avances, tiene tope y escala ×2 en `fast` y ×4 en `turbo` respecto de `normal`; `damp` converge a la casilla destino, no sobrepasa el destino partiendo del reposo y no produce saltos de posición (cambio por frame acotado por velocidad × dt)
+
+### Implementation for US4b
+
+- [X] T067 [US4b] Update design docs for the new contract: `contracts/socket-events.md` (`host:startRace` con `{ speed?: 'normal' | 'fast' | 'turbo' }`, error "Velocidad no válida", `HostState.race.speed` y `race.tickMs`) and `data-model.md` (`results.speed` con su CHECK y la nota del `ALTER TABLE` idempotente)
+- [X] T068 [P] [US4b] In `shared/horses.ts` add `RACE_SPEEDS`, `RaceSpeed`, `DEFAULT_SPEED` (with `TICK_MS = RACE_SPEEDS.normal`), `CoatName`, `coat` on each `HORSES` entry and `COATS` per plan D1/D2; in `shared/types.ts` add `StartRacePayload { speed?: RaceSpeed }` and `speed`, `tickMs` to `HostState.race`
+- [X] T069 [US4b] In `server/db.ts` add `speed TEXT NOT NULL DEFAULT 'normal' CHECK (speed IN ('normal','fast','turbo'))` to `results` in the schema, plus an idempotent `ALTER TABLE results ADD COLUMN ...` when `PRAGMA table_info(results)` lacks `speed` (existing `data/guanchotrack.db`)
+- [X] T070 [US4b] In `server/game.ts`: `startRace(speed = DEFAULT_SPEED)` validates the value (`GameError("Velocidad no válida")` before any write), stores `speed` in `results`, runs `setInterval` with `tickMsBySpeed[speed]` (option in `GameOptions`, default `RACE_SPEEDS`; existing `tickMs` option overrides every speed); `hostState().race` adds `speed` and `tickMs` (from `results` when replaying a finished race); in `server/index.ts` pass `tickMsBySpeed` through `createApp`; in `server/socket.ts` pass the `host:startRace` payload's `speed`
+- [X] T071 [US4b] Add the speed selector to `src/host/panel.ts` (Normal / Rápida / Turbo next to "Iniciar carrera", enabled only in `betting`, remembers the last choice in page memory, sends `{ speed }` with `host:startRace`); show "Velocidad: …" during `racing`
+- [X] T072 [P] [US4b] Create `src/host/motion.ts` with `advancesInWindow`, `gallopRate` and `damp` per plan D4 (pure, no `three` or DOM imports)
+- [X] T073 [US4b] Coats and mane in `src/host/horse.ts`: `createHorse({ color, number, coat })` reads `COATS[coat]` (body, mane, tail tokens); pinto body with a deterministic per-number `CanvasTexture` of irregular `white` spots on `brown` (no `Math.random`); mane as separate geometry on the neck; keep the black outline on coat parts; update callers in `src/host/scene.ts`
+- [X] T074 [US4b] Number texture in `src/host/horse.ts` per plan D3: 128 px canvas, system sans-serif stack, normal weight, thin digit in `numberColor` with a thin outline in the opposite token (`white` ↔ `black`)
+- [X] T075 [US4b] Neck/head pivot and gallop in `src/host/horse.ts`: `updateGallop(horse, dt, rate)` where `rate = 0` eases to standing; neck and head inside a pivot that pitches forward and down with the stride phase, synced with the legs; mane inside that pivot with a small phase lag
+- [X] T076 [US4b] Update `src/host/scene.ts`: horses scaled ×1.5; follow and photo-finish cameras re-framed so the 6 lanes stay visible; keep a per-tick position history from `state.race`; while `racing`, every horse gallops continuously with `gallopRate(advancesInWindow(...), race.tickMs)`; positions follow targets with `damp` (`omega` from `race.tickMs`); horses stop when `finished` (after reaching their square) or on reset (`setRace(null)`)
+- [X] T077 [US4b] Visual validation on a separate test instance (own port and temp DB, not `data/`): screenshots of `/host` during a race in each speed and during a photo finish; verify every canvas pixel is one of the 16 palette colors, the 6 lanes are visible, each coat is recognizable, every mane number is legible on its color, and gallop pose changes between frames for leading and stalled horses; fix issues found
+
+**Checkpoint**: Velocidad elegible y registrada sin alterar resultados; caballos más grandes, con pelaje, números legibles y galope continuo; `race-speed`, `horses` y `motion` pasan
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -243,6 +280,7 @@ verificar saldos, apuestas e historial; intentar acciones de host como jugador (
 - **US1 (Phase 4)**: Depends on US2 (needs authenticated sockets)
 - **US3, US4, US5, US6 (Phases 5–8)**: Depend on US1 (round state machine and projections); independent of each other
 - **Polish (Phase 9)**: Depends on all desired user stories being complete
+- **US4b (Phase 10)**: Depends on US4 (escena 3D) and US5 (`host:resetRace`, usado en los tests de velocidad); T077 re-runs the visual checks, so run Polish T063 again afterwards if it was already done
 
 ### User Story Dependencies
 
@@ -252,6 +290,7 @@ verificar saldos, apuestas e historial; intentar acciones de host como jugador (
 - **US4 (P2)**: after US1 — mostly new files under `src/host/`; `panel.ts`/`main.ts` shared
 - **US5 (P2)**: after US1 — touches `server/game.ts`, `server/socket.ts`, `src/host/panel.ts`
 - **US6 (P3)**: after US1 — touches `server/game.ts`, `src/host/panel.ts`
+- **US4b (P2)**: after US4 and US5 — touches `shared/horses.ts`, `shared/types.ts`, `server/db.ts`, `server/game.ts`, `server/socket.ts`, `src/host/panel.ts`, `src/host/horse.ts`, `src/host/scene.ts`
 
 ### Within Each User Story
 
@@ -270,6 +309,7 @@ verificar saldos, apuestas e historial; intentar acciones de host como jugador (
 - US1: tests T026–T028 in parallel; T029–T031 in parallel; then T032 → T033 → T034 → T035; T036 and T037 in parallel after T035
 - US3/US4/US5/US6 can be developed in parallel by different people after US1, coordinating edits to `server/game.ts` and `src/host/panel.ts`
 - US4: T042, T043, T044 in parallel, then T045 → T046, T047 → T048
+- US4b: tests T064, T065, T066 in parallel; T067, T068, T072 in parallel; server T069 → T070 → T071; visuals T073 → T074 → T075 → T076 (same files); T077 last
 
 ---
 

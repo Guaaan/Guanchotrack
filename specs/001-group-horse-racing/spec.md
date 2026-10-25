@@ -16,7 +16,20 @@
 - Q: ¿Puede un jugador retirar su apuesta por completo mientras la fase de apuestas siga abierta, o solo cambiarla? → A: Solo cambiarla (caballo y/o monto, mínimo 1 moneda); no existe cancelar. Solo el reinicio de ronda del host devuelve apuestas.
 - Q: En el panel del host, ¿la lista "quiénes faltan por apostar" incluye solo a los jugadores conectados o a todos los registrados? → A: Solo los conectados ahora; quien se desconecta sale de "faltan", pero si ya apostó sigue en "apostaron".
 - Q: Cuando un pago da decimales, ¿qué se hace con las monedas que sobran al redondear? → A: Cada pago se redondea hacia abajo y el sobrante se reparte de a 1 moneda a los ganadores con mayor parte decimal perdida; a igualdad, a quien confirmó antes su apuesta vigente.
-- Q: ¿Cuánto debería durar una carrera típica, desde la salida hasta que llega el ganador? → A: Larga, unos 60 s: pista de 40 casillas y tick de 200 ms.
+- Q: ¿Cuánto debería durar una carrera típica, desde la salida hasta que llega el ganador? → A: Larga, unos 60 s: pista de 40 casillas y tick de 200 ms. (Ajustado en US4b: 200 ms es la velocidad Normal; el host puede elegir Rápida o Turbo.)
+
+### Ajustes US4b (2026-10-24)
+
+- Velocidad de carrera: el host la elige antes de iniciar cada carrera (no durante): Normal
+  200 ms por tick (por defecto), Rápida 100 ms, Turbo 50 ms. La probabilidad de avance (1/10) y
+  el largo de pista (40) no cambian; la velocidad solo cambia la duración, nunca el resultado.
+  La velocidad usada queda registrada en el resultado de la carrera.
+- Pelajes: 4 tipos fijos por número de caballo (1 castaño, 2 pinto, 3 tordo, 4 palomino,
+  5 pinto, 6 castaño), solo con colores de la paleta. Son puramente visuales.
+- Caballos más grandes en pantalla (~1,5×) con los 6 carriles visibles, y números de manta
+  más finos con contorno de contraste.
+- Galope continuo durante toda la carrera, con cadencia según las rachas recientes de cada
+  caballo, cabeceo de cuello y cabeza, y crin que acompaña el movimiento.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -119,8 +132,11 @@ comprobar que la pantalla del host y los celulares reflejan los nuevos valores s
 ### User Story 4 - Carrera 3D en pantalla grande con leaderboard en vivo (Priority: P2)
 
 La vista del host muestra una pista recta con los 6 caballos con jinete en 3D, cada uno con
-su color y número. Los caballos avanzan poco a poco a medida que la carrera progresa. Un panel
-muestra el orden de los caballos de primero a último y quiénes apostaron a cada uno.
+su color, número y pelaje. Antes de iniciar la carrera, el host elige su velocidad (Normal,
+Rápida o Turbo). Mientras la carrera está en curso, todos los caballos galopan sin parar, más
+rápido cuando vienen en racha y más lento cuando están estancados, y se desplazan de forma
+suave hacia su casilla. Un panel muestra el orden de los caballos de primero a último y quiénes
+apostaron a cada uno.
 
 **Why this priority**: es el espectáculo compartido del juego; la lógica de la ronda (P1) no
 depende de lo visual.
@@ -137,6 +153,21 @@ pista.
    carrera se reordena y muestra junto a cada caballo los jugadores que le apostaron.
 3. **Given** dos pantallas de host abiertas a la vez, **When** avanza la carrera, **Then** ambas
    muestran las mismas posiciones.
+4. **Given** la fase de apuestas abierta, **When** el host elige "Turbo" e inicia la carrera,
+   **Then** la carrera avanza un tick cada 50 ms y el resultado registra la velocidad Turbo.
+5. **Given** el host no eligió velocidad, **When** inicia la carrera, **Then** corre en Normal
+   (200 ms por tick).
+6. **Given** una carrera en curso, **When** el host intenta cambiar la velocidad, **Then** no es
+   posible: el selector está deshabilitado y el servidor no acepta cambios hasta la próxima
+   carrera.
+7. **Given** la misma semilla, **When** la carrera se corre en Normal y en Turbo, **Then** las
+   posiciones por tick, el ganador y el orden final son idénticos; solo cambia la duración.
+8. **Given** una carrera en curso, **When** un caballo no avanzó en los últimos ticks, **Then**
+   sigue galopando a ritmo lento; **When** viene avanzando seguido, **Then** galopa más rápido.
+   Al terminar o reiniciar la carrera, todos se detienen.
+9. **Given** la pantalla del host, **When** se mira la pista, **Then** cada caballo muestra su
+   pelaje fijo (1 castaño, 2 pinto, 3 tordo, 4 palomino, 5 pinto, 6 castaño), los 6 carriles son
+   visibles y el número de cada manta se lee sobre cualquier color.
 
 ---
 
@@ -226,6 +257,12 @@ la cantidad de aciertos de cada jugador.
   (las monedas ya apostadas no se ven afectadas).
 - **Reiniciar la carrera**: la nueva carrera usa una semilla nueva; el resultado de la carrera
   anulada no se aplica.
+- **Velocidad tras reiniciar la carrera**: el host puede elegir otra velocidad antes de volver a
+  iniciarla; cada carrera registra la suya.
+- **Velocidad no válida**: un valor distinto de Normal, Rápida o Turbo se rechaza y la carrera
+  no se inicia.
+- **Host que recarga a mitad de una carrera Turbo**: recibe el estado actual con la velocidad en
+  curso y la animación se adapta a ese ritmo.
 - **Registro con el nombre "hosttt"**: no es posible crear otra cuenta con ese nombre.
 - **Acciones del host fuera de fase** (p. ej. iniciar carrera sin ronda abierta): se rechazan
   y los controles no disponibles en la fase actual aparecen deshabilitados.
@@ -257,11 +294,18 @@ la cantidad de aciertos de cada jugador.
 **Caballos y carrera**
 
 - **FR-008**: Cada carrera MUST tener 6 caballos con jinete, con estadísticas idénticas,
-  distinguibles solo por número y color: 1 Rojo #FF004D, 2 Naranjo #FFA300, 3 Amarillo
-  #FFEC27, 4 Verde #00E436, 5 Azul #29ADFF, 6 Rosado #FF77A8.
-- **FR-009**: La carrera MUST avanzar en ticks de 200 ms sobre una pista de 40 casillas desde la
-  salida hasta la meta; en cada tick, cada caballo tiene de forma independiente una probabilidad
-  de 1 en 10 de avanzar una casilla.
+  distinguibles por número y color: 1 Rojo #FF004D, 2 Naranjo #FFA300, 3 Amarillo
+  #FFEC27, 4 Verde #00E436, 5 Azul #29ADFF, 6 Rosado #FF77A8. Cada caballo tiene además un
+  pelaje fijo (FR-030a), puramente visual, que no afecta a la carrera.
+- **FR-009**: La carrera MUST avanzar en ticks sobre una pista de 40 casillas desde la salida
+  hasta la meta; en cada tick, cada caballo tiene de forma independiente una probabilidad de 1 en
+  10 de avanzar una casilla. La duración del tick la fija la velocidad elegida (FR-009a).
+- **FR-009a**: Antes de iniciar cada carrera, el host MUST poder elegir su velocidad: Normal
+  (200 ms por tick), Rápida (100 ms) o Turbo (50 ms); por defecto, Normal. La velocidad MUST
+  quedar fija durante toda la carrera (no se puede cambiar con la carrera en curso), MUST
+  registrarse en el resultado de la carrera y MUST NOT alterar la probabilidad de avance, el
+  largo de la pista ni la secuencia de posiciones: con la misma semilla, el resultado es el mismo
+  en cualquier velocidad. Solo el host puede elegirla; cualquier otro valor se rechaza.
 - **FR-010**: Gana el primer caballo en alcanzar la casilla de meta. Si varios la alcanzan en el
   mismo tick, se resuelve por photo finish: cada empatado recibe un valor aleatorio generado por
   el servidor con la semilla de la carrera y gana el de mayor valor; siempre hay un único
@@ -324,6 +368,23 @@ la cantidad de aciertos de cada jugador.
 
 - **FR-030**: La vista del host MUST mostrar una pista recta con los 6 caballos con jinete en
   3D, que avanzan visualmente de forma gradual.
+- **FR-030a**: Cada caballo MUST mostrar un pelaje fijo según su número, generado por código con
+  colores de la paleta: 1 castaño, 2 pinto, 3 tordo, 4 palomino, 5 pinto, 6 castaño.
+  Castaño: cuerpo #AB5236, crin y cola #000000. Pinto: cuerpo #AB5236 con manchas irregulares
+  #FFF1E8, crin y cola #000000. Tordo: cuerpo #C2C3C7, crin y cola #5F574F. Palomino: cuerpo
+  #FFCCAA, crin y cola #FFF1E8. Las manchas del pinto MUST ser iguales en todas las pantallas de
+  host (deterministas por número de caballo). La crin MUST ser una pieza separada sobre el
+  cuello.
+- **FR-030b**: Los caballos MUST verse a ~1,5× del tamaño anterior, con los 6 carriles visibles
+  en todo momento de la carrera. El número de cada manta MUST usar una fuente sans-serif del
+  sistema de peso normal, con trazo fino y un contorno fino de contraste, legible sobre
+  cualquier color de manta.
+- **FR-030c**: Mientras la carrera está en curso, todos los caballos MUST galopar de forma
+  continua y detenerse solo al terminar o reiniciar la carrera. La cadencia del galope de cada
+  caballo MUST depender de cuántas veces avanzó en los últimos 10 ticks (estancado = lenta, en
+  racha = rápida). Cuello y cabeza MUST cabecear hacia adelante y abajo en cada zancada,
+  sincronizados con las patas, y la crin MUST acompañar ese movimiento. La posición MUST
+  suavizarse con amortiguación continua hacia la casilla destino, sin saltos visibles.
 - **FR-031**: En fase de apuestas, MUST mostrar el pozo y, por caballo: total apostado,
   cantidad de apostadores, multiplicador y lista de jugadores con su apuesta y lo que recibirían
   si ese caballo gana; además, quiénes ya apostaron (conectados o no) y quiénes faltan,
@@ -368,14 +429,16 @@ la cantidad de aciertos de cada jugador.
 - **Usuario**: cuenta con nombre único, contraseña protegida, rol (host o jugador), saldo de
   monedas y puntaje.
 - **Sesión**: vínculo entre un dispositivo y un usuario autenticado; sobrevive a la recarga.
-- **Caballo**: uno de 6 participantes fijos con número (1–6) y color; sin estadísticas propias.
+- **Caballo**: uno de 6 participantes fijos con número (1–6), color y pelaje (visual); sin
+  estadísticas propias.
 - **Ronda**: unidad de juego con fase (apuestas, carrera, resultado), pozo, acumulado recibido
   y caballo ganador. Reiniciar la ronda conserva la misma ronda y marca sus apuestas como
   devueltas.
 - **Pozo acumulado**: monedas de rondas sin acertantes que esperan a la siguiente ronda; es
   único, persistente y cada entrada o salida queda en el libro de movimientos.
-- **Carrera**: ejecución de la carrera dentro de una ronda, con semilla, posiciones por tick y
-  ganador; una ronda puede tener carreras anuladas por reinicio y una sola carrera válida.
+- **Carrera**: ejecución de la carrera dentro de una ronda, con semilla, velocidad (Normal,
+  Rápida o Turbo), posiciones por tick y ganador; una ronda puede tener carreras anuladas por
+  reinicio y una sola carrera válida.
 - **Apuesta**: jugador, ronda, caballo, monto, hora de confirmación y estado (activa, devuelta,
   ganadora, perdedora) con su pago.
 - **Movimiento de saldo**: registro inmutable de cada cambio de saldo con tipo (apuesta,
@@ -397,8 +460,9 @@ la cantidad de aciertos de cada jugador.
   activas y pozo acumulado solo cambia por ajustes del host.
 - **SC-006**: En el 100 % de las rondas, el pago recibido coincide con el último pago potencial
   mostrado al cierre de apuestas.
-- **SC-007**: Una carrera dura alrededor de 60 segundos y entre 45 y 90 segundos en el 90 % de
-  los casos.
+- **SC-007**: En velocidad Normal, una carrera dura alrededor de 60 segundos y entre 45 y 90
+  segundos en el 90 % de los casos. En Rápida y Turbo dura, respectivamente, la mitad y la
+  cuarta parte (aprox. 30 s y 15 s), con el mismo número de ticks.
 - **SC-008**: Tras recargar la página o reiniciar el sistema, ningún usuario pierde su sesión,
   saldo, puntaje ni apuestas activas.
 - **SC-009**: La vista de jugador es usable sin scroll horizontal en pantallas desde 360 px de
@@ -407,8 +471,11 @@ la cantidad de aciertos de cada jugador.
 ## Assumptions
 
 - Existe una única partida compartida (un host, un grupo); no hay múltiples salas.
-- Largo de pista (40 casillas) y duración del tick (200 ms) son parámetros configurables; si
-  las pruebas muestran que no se cumple SC-007, pueden afinarse sin cambiar la regla de 1 en 10.
+- Largo de pista (40 casillas) y la duración del tick de cada velocidad (200 / 100 / 50 ms)
+  son parámetros configurables; si las pruebas muestran que no se cumple SC-007 en Normal,
+  pueden afinarse sin cambiar la regla de 1 en 10.
+- La velocidad elegida no se muestra a los jugadores en el celular (ellos miran la pantalla).
+- La cola del pinto es #000000, igual que su crin.
 - Las monedas son ficticias y enteras; nunca se convierten a dinero real.
 - El host no apuesta ni aparece en el leaderboard general.
 - Solo existe un host a la vez; cambiar `HOST_USER` entre arranques convierte en jugador a la

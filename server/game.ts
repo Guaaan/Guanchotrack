@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import { TICK_MS, TRACK_LENGTH } from '../shared/horses';
+import { DEFAULT_SPEED, isRaceSpeed, RACE_SPEEDS, TRACK_LENGTH, type RaceSpeed } from '../shared/horses';
 import type {
   AdjustBalancePayload,
   BetPlacePayload,
@@ -21,7 +21,17 @@ export interface GameOptions {
   emit: Emit;
   now?: () => number;
   seedFn?: () => number;
+  /** Ms por tick de cada velocidad (por defecto `RACE_SPEEDS`). */
+  tickMsBySpeed?: Readonly<Record<RaceSpeed, number>>;
+  /** Fuerza el mismo intervalo para todas las velocidades (tests rápidos). */
   tickMs?: number;
+}
+
+interface RaceRun {
+  roundId: number;
+  resultId: number;
+  speed: RaceSpeed;
+  state: RaceState;
 }
 
 /** Error de regla de juego; su mensaje (en español) se devuelve al cliente en el ack. */
@@ -53,6 +63,7 @@ interface ResultRow {
   status: 'running' | 'annulled' | 'final';
   winner_horse: HorseNumber | null;
   photo_finish: string | null;
+  speed: RaceSpeed;
 }
 
 const isHorse = (h: unknown): h is HorseNumber => Number.isInteger(h) && (h as number) >= 1 && (h as number) <= 6;
@@ -63,19 +74,27 @@ export class Game {
   private readonly emit: Emit;
   readonly now: () => number;
   readonly seedFn: () => number;
-  readonly tickMs: number;
+  private readonly tickMsBySpeed: Readonly<Record<RaceSpeed, number>>;
   /** userId → nº de sockets conectados. */
   readonly presence = new Map<number, number>();
   /** Carrera de la ronda actual (en curso o terminada), solo en memoria. */
-  private race: { roundId: number; resultId: number; state: RaceState } | null = null;
+  private race: RaceRun | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
 
-  constructor({ db, emit, now = Date.now, seedFn = () => randomInt(2 ** 32), tickMs = TICK_MS }: GameOptions) {
+  constructor({
+    db,
+    emit,
+    now = Date.now,
+    seedFn = () => randomInt(2 ** 32),
+    tickMsBySpeed = RACE_SPEEDS,
+    tickMs,
+  }: GameOptions) {
     this.db = db;
     this.emit = emit;
     this.now = now;
     this.seedFn = seedFn;
-    this.tickMs = tickMs;
+    this.tickMsBySpeed =
+      tickMs === undefined ? tickMsBySpeed : { normal: tickMs, fast: tickMs, turbo: tickMs };
   }
 
   connect(userId: number): void {
@@ -119,21 +138,21 @@ export class Game {
   private finalResult(roundId: number): ResultRow | null {
     return (
       (this.db
-        .prepare("SELECT id, seed, status, winner_horse, photo_finish FROM results WHERE round_id = ? AND status = 'final'")
+        .prepare("SELECT id, seed, status, winner_horse, photo_finish, speed FROM results WHERE round_id = ? AND status = 'final'")
         .get(roundId) as ResultRow | undefined) ?? null
     );
   }
 
   /** Carrera de la ronda; si no está en memoria (p. ej. tras reiniciar) se reproduce con su semilla. */
-  private raceFor(round: RoundRow): RaceState | null {
-    if (this.race?.roundId === round.id) return this.race.state;
+  private raceFor(round: RoundRow): RaceRun | null {
+    if (this.race?.roundId === round.id) return this.race;
     if (round.phase !== 'finished') return null;
     const result = this.finalResult(round.id);
     if (!result) return null;
     let state = createRace(result.seed);
     while (!state.finished) state = stepRace(state);
-    this.race = { roundId: round.id, resultId: result.id, state };
-    return state;
+    this.race = { roundId: round.id, resultId: result.id, speed: result.speed, state };
+    return this.race;
   }
 
   /** Acumulado que entra en el pozo de la ronda: el actual o, si ya terminó, el que se usó. */
@@ -186,22 +205,24 @@ export class Game {
     this.broadcast();
   }
 
-  startRace(): void {
+  /** Inicia la carrera a la velocidad elegida; la velocidad solo fija el intervalo del tick. */
+  startRace(speed: unknown = DEFAULT_SPEED): void {
     const round = this.currentRound();
     if (round?.phase !== 'betting') throw new GameError('La ronda no está en fase de apuestas');
+    if (!isRaceSpeed(speed)) throw new GameError('Velocidad no válida');
     const seed = this.seedFn();
     const resultId = this.db.transaction(() => {
       const id = Number(
         this.db
-          .prepare("INSERT INTO results (round_id, seed, status, started_at) VALUES (?, ?, 'running', ?)")
-          .run(round.id, seed, this.now()).lastInsertRowid,
+          .prepare("INSERT INTO results (round_id, seed, status, speed, started_at) VALUES (?, ?, 'running', ?, ?)")
+          .run(round.id, seed, speed, this.now()).lastInsertRowid,
       );
       this.db.prepare("UPDATE rounds SET phase = 'racing' WHERE id = ?").run(round.id);
       return id;
     })();
-    this.race = { roundId: round.id, resultId, state: createRace(seed) };
+    this.race = { roundId: round.id, resultId, speed, state: createRace(seed) };
     this.stop();
-    this.timer = setInterval(() => this.tick(), this.tickMs);
+    this.timer = setInterval(() => this.tick(), this.tickMsBySpeed[speed]);
     this.broadcast();
   }
 
@@ -392,13 +413,15 @@ export class Game {
         .map((b): HostBetRow => ({ username: b.username, amount: b.amount, potentialPayout: potential.get(b.id) ?? 0 })),
     }));
 
-    const raceState = round ? this.raceFor(round) : null;
+    const run = round ? this.raceFor(round) : null;
     const race =
-      raceState && (phase === 'racing' || phase === 'finished')
+      run && (phase === 'racing' || phase === 'finished')
         ? {
-            tick: raceState.tick,
-            positions: Object.fromEntries(raceState.positions.map((p, i) => [i + 1, p])) as Record<HorseNumber, number>,
-            order: raceOrder(raceState),
+            tick: run.state.tick,
+            positions: Object.fromEntries(run.state.positions.map((p, i) => [i + 1, p])) as Record<HorseNumber, number>,
+            order: raceOrder(run.state),
+            speed: run.speed,
+            tickMs: this.tickMsBySpeed[run.speed],
           }
         : null;
 

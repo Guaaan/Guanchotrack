@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS results (
   final_order TEXT,
   photo_finish TEXT,
   ticks INTEGER,
+  speed TEXT NOT NULL DEFAULT 'normal' CHECK (speed IN ('normal', 'fast', 'turbo')),
   started_at INTEGER NOT NULL,
   ended_at INTEGER
 );
@@ -73,6 +74,13 @@ export function openDb(path: string): Db {
   if (path !== ':memory:') db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
+  // Bases creadas antes de US4b: agrega la columna de velocidad (idempotente).
+  const columns = db.prepare('PRAGMA table_info(results)').all() as { name: string }[];
+  if (!columns.some((c) => c.name === 'speed')) {
+    db.exec(
+      "ALTER TABLE results ADD COLUMN speed TEXT NOT NULL DEFAULT 'normal' CHECK (speed IN ('normal', 'fast', 'turbo'))",
+    );
+  }
   return db;
 }
 

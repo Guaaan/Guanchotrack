@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import bcrypt from 'bcryptjs';
 import express from 'express';
 import { Server } from 'socket.io';
+import type { RaceSpeed } from '../shared/horses';
 import { authRouter } from './auth';
 import { openDb, type Db } from './db';
 import { Game } from './game';
@@ -21,6 +22,7 @@ export interface AppOptions {
   hostUser: string;
   hostPassword: string;
   tickMs?: number;
+  tickMsBySpeed?: Record<RaceSpeed, number>;
   seedFn?: () => number;
 }
 
@@ -69,6 +71,7 @@ export async function createApp(opts: AppOptions): Promise<App> {
       io.to(target === 'host' ? 'host' : `player:${target.userId}`).emit('state', state);
     },
     tickMs: opts.tickMs,
+    tickMsBySpeed: opts.tickMsBySpeed,
     seedFn: opts.seedFn,
   });
 

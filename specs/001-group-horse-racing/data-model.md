@@ -79,9 +79,13 @@ Una fila por carrera ejecutada (incluidas las anuladas por reinicio).
 | final_order | TEXT NULL | JSON `number[]` de 6 caballos, primero a último |
 | photo_finish | TEXT NULL | JSON `{ horse, value }[]` de los empatados, si hubo |
 | ticks | INTEGER NULL | ticks hasta la meta |
+| speed | TEXT | `'normal'` \| `'fast'` \| `'turbo'`, por defecto `'normal'`; velocidad elegida al iniciar (US4b) |
 | started_at | INTEGER | |
 | ended_at | INTEGER NULL | |
 
+- `speed` solo cambia la duración del tick (200 / 100 / 50 ms); con la misma semilla, el
+  resultado es idéntico en cualquier velocidad. En bases creadas antes de US4b, `openDb` agrega
+  la columna con un `ALTER TABLE` idempotente (ver plan, Complexity Tracking).
 - Máximo una fila `final` por ronda. Con la semilla, `final_order` puede reproducirse con el
   motor puro (auditoría).
 

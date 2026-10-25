@@ -1,5 +1,5 @@
 import { formatCoins, formatMultiplier } from '../../shared/format';
-import { HORSES } from '../../shared/horses';
+import { DEFAULT_SPEED, HORSES, RACE_SPEEDS, type RaceSpeed } from '../../shared/horses';
 import type { HostState } from '../../shared/types';
 import { emitAck } from '../net';
 
@@ -85,14 +85,24 @@ function confirmButton(label: string, event: string, error: HTMLElement) {
 const controls = el('section', 'card stack');
 const phaseLabel = el('h2');
 const potLine = el('p', 'big');
-const raceLine = el('p');
 const controlError = el('p', 'error');
 const openButton = actionButton('Abrir ronda', 'host:openRound', controlError);
-const startButton = actionButton('Iniciar carrera', 'host:startRace', controlError);
+// Velocidad elegida antes de iniciar; se recuerda entre rondas mientras la página siga abierta.
+const SPEED_LABEL: Record<RaceSpeed, string> = { normal: 'Normal', fast: 'Rápida', turbo: 'Turbo' };
+const speedSelect = el('select');
+speedSelect.setAttribute('aria-label', 'Velocidad de la carrera');
+for (const speed of Object.keys(RACE_SPEEDS) as RaceSpeed[]) {
+  const option = el('option', '', SPEED_LABEL[speed]);
+  option.value = speed;
+  speedSelect.append(option);
+}
+speedSelect.value = DEFAULT_SPEED;
+const speedLine = el('p');
+const startButton = actionButton('Iniciar carrera', 'host:startRace', controlError, () => ({ speed: speedSelect.value }));
 const resetRoundButton = confirmButton('Reiniciar apuestas', 'host:resetRound', controlError);
 const resetRaceButton = confirmButton('Reiniciar carrera', 'host:resetRace', controlError);
 const buttonRow = el('div', 'row');
-buttonRow.append(openButton, startButton, resetRoundButton.root, resetRaceButton.root);
+buttonRow.append(openButton, speedSelect, startButton, resetRoundButton.root, resetRaceButton.root);
 
 const balanceForm = el('form', 'row');
 const userInput = el('input');
@@ -135,7 +145,7 @@ balanceForm.addEventListener('submit', async (e) => {
   }
 });
 
-controls.append(phaseLabel, potLine, buttonRow, controlError, raceLine, el('h3', '', 'Saldos'), balanceForm, balanceError);
+controls.append(phaseLabel, potLine, buttonRow, controlError, speedLine, el('h3', '', 'Saldos'), balanceForm, balanceError);
 
 const resultPanel = el('section', 'card stack');
 
@@ -167,9 +177,33 @@ missingBox.append(el('h3', '', 'Faltan'), missingList);
 statusRow.append(placedBox, missingBox);
 bettingPanel.append(bettingPot, bettingCarry, horseCards, statusRow);
 
+// Tabla de la carrera en vivo: primero a último.
+const racePanel = el('section', 'card stack race-board');
+const raceList = el('ol');
+racePanel.append(el('h2', '', 'Carrera'), raceList);
+
 /** Monta los paneles en `root` (una sola vez). */
 export function mountPanel(root: HTMLElement): void {
-  root.append(controls, bettingPanel, resultPanel);
+  root.append(controls, racePanel, bettingPanel, resultPanel);
+}
+
+export function renderRaceBoard(state: HostState): void {
+  racePanel.hidden = state.phase !== 'racing' || !state.race;
+  if (racePanel.hidden || !state.race) return;
+  const race = state.race;
+  raceList.replaceChildren(
+    ...race.order.map((h) => {
+      const row = el('li', 'row');
+      const bettors = state.horses.find((x) => x.horse === h)?.bets.map((b) => b.username) ?? [];
+      row.append(
+        horseBadge(h),
+        el('strong', '', `${HORSES[h - 1].name}`),
+        el('span', '', `casilla ${race.positions[h]}/${state.trackLength}`),
+        el('span', 'bettors', bettors.join(', ')),
+      );
+      return row;
+    }),
+  );
 }
 
 export function renderBetting(state: HostState): void {
@@ -197,16 +231,15 @@ export function renderControls(state: HostState): void {
   phaseLabel.textContent = PHASE_LABEL[state.phase];
   openButton.disabled = !(state.phase === 'idle' || state.phase === 'finished');
   startButton.disabled = state.phase !== 'betting';
+  speedSelect.disabled = state.phase !== 'betting';
+  speedLine.textContent =
+    state.race && (state.phase === 'racing' || state.phase === 'finished') ? `Velocidad: ${SPEED_LABEL[state.race.speed]}` : '';
   resetRoundButton.setEnabled(state.phase === 'betting');
   resetRaceButton.setEnabled(state.phase === 'racing');
   potLine.textContent =
     state.phase === 'idle' || state.phase === 'betting'
       ? ''
       : `Pozo: ${formatCoins(state.pot)}` + (state.carry > 0 ? ` (incluye ${formatCoins(state.carry)} acumulado)` : '');
-  raceLine.textContent =
-    state.phase === 'racing' && state.race
-      ? `Tick ${state.race.tick} · ` + state.race.order.map((h) => `${h}:${state.race!.positions[h]}`).join('  ')
-      : '';
 }
 
 export function renderResult(state: HostState): void {

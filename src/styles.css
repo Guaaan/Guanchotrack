@@ -261,3 +261,90 @@ button.danger:disabled {
 button[hidden] {
   display: none;
 }
+
+/* Vista host: escena 3D protagonista con paneles al lado. */
+.host #app {
+  max-width: none;
+}
+
+.host-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 30%);
+  gap: 16px;
+  align-items: start;
+}
+
+.stage {
+  position: relative;
+  height: calc(100vh - 100px);
+  min-height: 360px;
+  border: 3px solid var(--c-black);
+  background: var(--c-dark-blue);
+  overflow: hidden;
+}
+
+.stage-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.side {
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+
+.side .horse-cards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.photo-flash {
+  position: absolute;
+  inset: 0;
+  background: var(--c-white);
+  pointer-events: none;
+}
+
+.photo-flash[hidden],
+.photo-label[hidden] {
+  display: none;
+}
+
+.photo-label {
+  position: absolute;
+  top: 12%;
+  left: 10%;
+  width: 80%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.race-board ol {
+  margin: 0;
+  padding-left: 1.5em;
+  font-size: 1.15em;
+}
+
+.race-board li {
+  margin-bottom: 6px;
+}
+
+.race-board .bettors {
+  color: var(--c-light-grey);
+  font-size: 0.85em;
+}
+
+@media (max-width: 900px) {
+  .host-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .stage {
+    height: 60vh;
+  }
+
+  .side {
+    max-height: none;
+  }
+}
