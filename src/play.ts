@@ -1,10 +1,10 @@
 import { formatCoins, formatMultiplier } from '../shared/format';
-import { HORSES } from '../shared/horses';
+import { DEFAULT_HORSES } from '../shared/horses';
 import type { HorseNumber, PlayerState } from '../shared/types';
 import { connect, emitAck } from './net';
 import { guard } from './session';
 
-const { main } = await guard('player');
+const { main, nameEl } = await guard('player');
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') => {
   const node = document.createElement(tag);
@@ -13,7 +13,7 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text 
   return node;
 };
 
-const swatch = (horse: (typeof HORSES)[number]) => {
+const swatch = (horse: (typeof DEFAULT_HORSES)[number]) => {
   const s = el('span', 'swatch', String(horse.number));
   s.style.background = `var(--c-${horse.color})`;
   s.style.color = `var(--c-${horse.numberColor})`;
@@ -32,7 +32,7 @@ function buildBetting(): typeof view {
   const root = el('div', 'stack');
   const grid = el('div', 'horses');
   const buttons = new Map<HorseNumber, { button: HTMLButtonElement; mult: HTMLElement }>();
-  for (const horse of HORSES) {
+  for (const horse of DEFAULT_HORSES) {
     const button = el('button', 'horse');
     button.type = 'button';
     const mult = el('span', 'mult');
@@ -96,7 +96,7 @@ function buildBetting(): typeof view {
       submit.textContent = state.myBet ? 'Cambiar apuesta' : 'Apostar';
       myBet.hidden = !state.myBet;
       if (state.myBet) {
-        const horse = HORSES[state.myBet.horse - 1];
+        const horse = DEFAULT_HORSES[state.myBet.horse - 1];
         myBetText.textContent = `Tu apuesta: ${formatCoins(state.myBet.amount)} al ${horse.number} ${horse.name}`;
         potential.textContent = `Recibirías si gana: ${formatCoins(state.myBet.potentialPayout)}`;
       }
@@ -121,11 +121,11 @@ function buildMessage(key: string, title: string): typeof view {
       if (state.phase === 'racing') {
         const bet = state.myBet;
         detail.textContent = bet
-          ? `Apostaste ${formatCoins(bet.amount)} al ${bet.horse} ${HORSES[bet.horse - 1].name}`
+          ? `Apostaste ${formatCoins(bet.amount)} al ${bet.horse} ${DEFAULT_HORSES[bet.horse - 1].name}`
           : 'No apostaste en esta ronda';
       } else if (state.phase === 'finished' && state.myResult) {
         const r = state.myResult;
-        const winner = HORSES[r.winner - 1];
+        const winner = DEFAULT_HORSES[r.winner - 1];
         heading.textContent = !r.participated
           ? 'No participaste en esta ronda'
           : r.won
@@ -143,13 +143,13 @@ function buildMessage(key: string, title: string): typeof view {
         myHorseLine.hidden = mine === null;
         if (mine !== null) {
           const place = order.indexOf(mine) + 1;
-          myHorseLine.replaceChildren('Tu caballo: ', swatch(HORSES[mine - 1]), ` ${HORSES[mine - 1].name} · ${finished ? 'terminó' : 'va'} ${place}.º`);
+          myHorseLine.replaceChildren('Tu caballo: ', swatch(DEFAULT_HORSES[mine - 1]), ` ${DEFAULT_HORSES[mine - 1].name} · ${finished ? 'terminó' : 'va'} ${place}.º`);
         }
         topTitle.textContent = finished ? 'Podio' : 'Adelante';
         topList.replaceChildren(
           ...order.slice(0, 3).map((n, i) => {
             const li = el('li');
-            li.append(`${i + 1}.º `, swatch(HORSES[n - 1]), ` ${HORSES[n - 1].name}`);
+            li.append(`${i + 1}.º `, swatch(DEFAULT_HORSES[n - 1]), ` ${DEFAULT_HORSES[n - 1].name}`);
             if (n === mine) li.classList.add('mine');
             return li;
           }),
@@ -182,4 +182,9 @@ function render(state: PlayerState): void {
   view!.update(state);
 }
 
-connect((state) => render(state as PlayerState));
+connect((state) => {
+  const s = state as PlayerState;
+  // el host puede renombrar al jugador sin cerrar su sesión (FR-008)
+  nameEl.textContent = s.username;
+  render(s);
+});

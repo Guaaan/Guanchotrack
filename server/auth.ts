@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { Router } from 'express';
+import type { LoginAttempts } from './admin';
 import type { Db } from './db';
 
 export const SESSION_COOKIE = 'gt_session';
@@ -30,7 +31,8 @@ export function userFromToken(db: Db, token: string | undefined): SessionUser | 
   if (!token) return null;
   const row = db
     .prepare(
-      `SELECT u.id, u.username, u.role FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?`,
+      `SELECT u.id, u.username, u.role FROM sessions s JOIN users u ON u.id = s.user_id
+       WHERE s.token = ? AND u.deleted_at IS NULL`,
     )
     .get(token) as SessionUser | undefined;
   return row ?? null;
@@ -38,6 +40,11 @@ export function userFromToken(db: Db, token: string | undefined): SessionUser | 
 
 export function deleteSession(db: Db, token: string | undefined): void {
   if (token) db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+}
+
+/** Cierra todas las sesiones de un usuario (contraseña restablecida o cuenta eliminada). */
+export function deleteUserSessions(db: Db, userId: number): void {
+  db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
 }
 
 /** Cookie de sesión sin `Max-Age`: dura hasta logout (research R4). */
@@ -50,15 +57,14 @@ export function clearCookieHeader(): string {
   return `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`;
 }
 
-const USERNAME_RE = /^[A-Za-z0-9_-]{3,20}$/;
+export const USERNAME_RE = /^[A-Za-z0-9_-]{3,20}$/;
 const MAX_FAILS = 5;
 const LOCK_MS = 60_000;
 
 /** Rutas REST de autenticación: login con autoregistro, logout y me. */
-export function authRouter(db: Db, now: () => number = Date.now): Router {
+export function authRouter(db: Db, now: () => number = Date.now, attempts: LoginAttempts = new Map()): Router {
   const router = Router();
-  // Límite de intentos en memoria por usuario (FR-007a); se pierde al reiniciar.
-  const attempts = new Map<string, { fails: number; lockedUntil: number }>();
+  // `attempts`: límite de intentos en memoria por usuario (FR-007a); se pierde al reiniciar.
 
   router.post('/api/login', async (req, res) => {
     const { username, password } = (req.body ?? {}) as { username?: unknown; password?: unknown };
@@ -71,7 +77,7 @@ export function authRouter(db: Db, now: () => number = Date.now): Router {
       return;
     }
 
-    let user = db.prepare('SELECT id, role, password_hash FROM users WHERE username = ?').get(username) as
+    let user = db.prepare('SELECT id, role, password_hash FROM users WHERE username = ? AND deleted_at IS NULL').get(username) as
       | { id: number; role: 'host' | 'player'; password_hash: string }
       | undefined;
     let created = false;

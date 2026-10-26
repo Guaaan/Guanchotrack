@@ -431,6 +431,128 @@ button[hidden] {
   padding-left: 1.5em;
 }
 
+/* Pestañas del host (feature 002): en la cabecera para no restar alto a la escena. */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-right: auto;
+}
+
+.tab {
+  padding: 6px 16px;
+  color: var(--c-light-grey);
+  background: var(--c-black);
+  border: 3px solid var(--c-dark-grey);
+}
+
+.tab[aria-selected='true'] {
+  color: var(--c-black);
+  background: var(--c-yellow);
+  border-color: var(--c-yellow);
+}
+
+.host-layout[hidden],
+.admin-view[hidden] {
+  display: none;
+}
+
+/* Pestaña Admin: tabla de participantes (pantalla del host, no proyectada). */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  /* anchos fijos: abrir un editor en una fila no mueve las columnas */
+  table-layout: fixed;
+}
+
+.admin-table th:nth-child(1) {
+  width: 18%;
+}
+
+.admin-table th:nth-child(2),
+.admin-table th:nth-child(3) {
+  width: 10%;
+}
+
+.admin-table th:nth-child(4) {
+  width: 14%;
+}
+
+.admin-table th:nth-child(5) {
+  width: 8%;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 2px solid var(--c-dark-grey);
+}
+
+.admin-table th {
+  color: var(--c-light-grey);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.admin-table .name {
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+
+.admin-table .inactive .name,
+.admin-table .inactive td:nth-child(2),
+.admin-table .inactive td:nth-child(3) {
+  color: var(--c-dark-grey);
+}
+
+.admin-table .online {
+  color: var(--c-green);
+}
+
+.admin-table .offline {
+  color: var(--c-dark-grey);
+}
+
+/* casilla propia: la nativa usa el azul del sistema, fuera de la paleta (VII) */
+.admin-table input[type='checkbox'] {
+  appearance: none;
+  width: 32px;
+  height: 32px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  background: var(--c-black);
+  border: 3px solid var(--c-light-grey);
+  cursor: pointer;
+}
+
+.admin-table input[type='checkbox']:checked {
+  background: var(--c-green);
+  border-color: var(--c-green);
+  box-shadow: inset 0 0 0 5px var(--c-black);
+}
+
+.admin-table input[type='checkbox']:focus-visible {
+  outline: 3px solid var(--c-yellow);
+}
+
+.admin-table .row[hidden],
+.admin-table .error:empty,
+.admin [hidden] {
+  display: none;
+}
+
+.admin-table .actions button {
+  min-height: 40px;
+  padding: 4px 10px;
+}
+
+.admin .warn {
+  color: var(--c-orange);
+}
+
 /* Vista host: texto escalado al ancho para leerse a 4 m en una pantalla de 50" (SC-009). */
 body.host {
   font-size: clamp(16px, 1.2vw, 30px);

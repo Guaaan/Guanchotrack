@@ -1,12 +1,41 @@
 import type { HostState } from '../../shared/types';
 import { connect } from '../net';
 import { guard } from '../session';
+import { mountAdmin, renderParticipants } from './admin';
 import { mountPanel, renderBetting, renderControls, renderLeaderboard, renderRaceBoard, renderResult } from './panel';
 import { createScene } from './scene';
 
 document.body.classList.add('host');
 const { main } = await guard('host');
-main.className = 'host-layout';
+// Pestañas "Juego" / "Admin": solo alternan `hidden`; socket y escena siguen vivos (research R10).
+const game = document.createElement('div');
+game.className = 'host-layout';
+const adminView = document.createElement('div');
+adminView.className = 'admin-view';
+adminView.hidden = true;
+main.append(game, adminView);
+const tabs = document.createElement('nav');
+tabs.className = 'tabs';
+tabs.setAttribute('role', 'tablist');
+const tabButtons = (['Juego', 'Admin'] as const).map((label) => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'tab';
+  button.textContent = label;
+  button.setAttribute('role', 'tab');
+  button.addEventListener('click', () => showTab(label));
+  return button;
+});
+tabs.append(...tabButtons);
+main.previousElementSibling?.firstElementChild?.after(tabs);
+
+function showTab(label: 'Juego' | 'Admin'): void {
+  game.hidden = label !== 'Juego';
+  adminView.hidden = label !== 'Admin';
+  for (const b of tabButtons) b.setAttribute('aria-selected', String(b.textContent === label));
+}
+showTab('Juego');
+
 const left = document.createElement('div');
 left.className = 'main-column';
 const stage = document.createElement('div');
@@ -15,8 +44,9 @@ const bottom = document.createElement('div');
 left.append(stage, bottom);
 const side = document.createElement('div');
 side.className = 'side';
-main.append(left, side);
+game.append(left, side);
 mountPanel(side, bottom);
+mountAdmin(adminView);
 
 const scene = createScene(stage);
 
@@ -33,6 +63,7 @@ connect((state) => {
   renderBetting(s);
   renderRaceBoard(s);
   renderLeaderboard(s);
+  renderParticipants(s);
 
   if (s.phase === 'finished' && prevPhase !== 'finished') {
     resultReady = false;

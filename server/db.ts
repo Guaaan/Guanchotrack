@@ -1,4 +1,7 @@
 import Database from 'better-sqlite3';
+import { DEFAULT_HORSES, numberColorFor, type CoatName, type Horse } from '../shared/horses';
+import type { ColorToken } from '../src/palette';
+import type { HorseNumber } from '../shared/types';
 
 export type Db = Database.Database;
 
@@ -67,20 +70,44 @@ CREATE TABLE IF NOT EXISTS coin_transactions (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS coin_transactions_user ON coin_transactions (user_id);
+
+CREATE TABLE IF NOT EXISTS horses (
+  number INTEGER PRIMARY KEY CHECK (number BETWEEN 1 AND 6),
+  name TEXT NOT NULL,
+  color TEXT NOT NULL,
+  coat TEXT NOT NULL CHECK (coat IN ('castano', 'pinto', 'tordo', 'palomino'))
+);
+
+CREATE TABLE IF NOT EXISTS admin_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  actor_id INTEGER NOT NULL REFERENCES users(id),
+  action TEXT NOT NULL CHECK (action IN ('set_active', 'rename', 'reset_password', 'remove_player', 'update_horse', 'reset_horses')),
+  target TEXT NOT NULL,
+  before TEXT,
+  after TEXT,
+  created_at INTEGER NOT NULL
+);
 `;
+
+export type AdminAction = 'set_active' | 'rename' | 'reset_password' | 'remove_player' | 'update_horse' | 'reset_horses';
+
+/** Agrega la columna si la tabla aún no la tiene (bases creadas antes de la feature que la usa). */
+function addColumn(db: Db, table: string, column: string, definition: string): void {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!columns.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
 
 export function openDb(path: string): Db {
   const db = new Database(path);
   if (path !== ':memory:') db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
-  // Bases creadas antes de US4b: agrega la columna de velocidad (idempotente).
-  const columns = db.prepare('PRAGMA table_info(results)').all() as { name: string }[];
-  if (!columns.some((c) => c.name === 'speed')) {
-    db.exec(
-      "ALTER TABLE results ADD COLUMN speed TEXT NOT NULL DEFAULT 'normal' CHECK (speed IN ('normal', 'fast', 'turbo'))",
-    );
-  }
+  // Bases creadas antes de US4b y de la feature 002 (idempotente).
+  addColumn(db, 'results', 'speed', "TEXT NOT NULL DEFAULT 'normal' CHECK (speed IN ('normal', 'fast', 'turbo'))");
+  addColumn(db, 'users', 'active', 'INTEGER NOT NULL DEFAULT 1');
+  addColumn(db, 'users', 'deleted_at', 'INTEGER');
+  const seed = db.prepare('INSERT OR IGNORE INTO horses (number, name, color, coat) VALUES (?, ?, ?, ?)');
+  for (const h of DEFAULT_HORSES) seed.run(h.number, h.name, h.color, h.coat);
   return db;
 }
 
@@ -154,4 +181,38 @@ export function checkInvariant(db: Db): boolean {
     .prepare("SELECT COALESCE(SUM(amount), 0) AS active FROM bets WHERE status = 'active'")
     .get() as { active: number };
   return all + active === adjusts;
+}
+
+/** Los 6 caballos vigentes, por número; el color del número se calcula (FR-013). */
+export function getHorses(db: Db): Horse[] {
+  const rows = db.prepare('SELECT number, name, color, coat FROM horses ORDER BY number').all() as {
+    number: HorseNumber;
+    name: string;
+    color: ColorToken;
+    coat: CoatName;
+  }[];
+  return rows.map((r) => ({ ...r, numberColor: numberColorFor(r.color) }));
+}
+
+export interface AdminLogInput {
+  actorId: number;
+  action: AdminAction;
+  target: string;
+  before?: unknown;
+  after?: unknown;
+  createdAt?: number;
+}
+
+/** Registro solo-inserción de acciones de administración (FR-003). */
+export function logAdmin(db: Db, entry: AdminLogInput): void {
+  db.prepare(
+    'INSERT INTO admin_log (actor_id, action, target, before, after, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+  ).run(
+    entry.actorId,
+    entry.action,
+    entry.target,
+    entry.before === undefined ? null : JSON.stringify(entry.before),
+    entry.after === undefined ? null : JSON.stringify(entry.after),
+    entry.createdAt ?? Date.now(),
+  );
 }

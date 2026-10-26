@@ -1,5 +1,5 @@
 import { formatCoins, formatMultiplier } from '../../shared/format';
-import { DEFAULT_SPEED, HORSES, RACE_SPEEDS, type RaceSpeed } from '../../shared/horses';
+import { DEFAULT_SPEED, DEFAULT_HORSES, RACE_SPEEDS, type RaceSpeed } from '../../shared/horses';
 import type { HostState } from '../../shared/types';
 import { emitAck } from '../net';
 
@@ -18,7 +18,7 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text 
 };
 
 function horseBadge(number: number): HTMLElement {
-  const horse = HORSES[number - 1];
+  const horse = DEFAULT_HORSES[number - 1];
   const s = el('span', 'swatch', String(horse.number));
   s.style.background = `var(--c-${horse.color})`;
   s.style.color = `var(--c-${horse.numberColor})`;
@@ -155,7 +155,7 @@ const bettingPot = el('p', 'pot');
 const bettingCarry = el('p');
 const horseCards = el('div', 'horse-cards');
 const cards = new Map<number, { total: HTMLElement; bettors: HTMLElement; mult: HTMLElement; list: HTMLElement }>();
-for (const horse of HORSES) {
+for (const horse of DEFAULT_HORSES) {
   const card = el('div', 'horse-card');
   const head = el('div', 'row');
   head.append(horseBadge(horse.number), el('strong', '', horse.name));
@@ -196,7 +196,8 @@ export function mountPanel(root: HTMLElement, bottom: HTMLElement): void {
 
 export function renderLeaderboard(state: HostState): void {
   if (state.leaderboard.length === 0) {
-    leaderboardList.replaceChildren(el('li', 'empty', 'Aún no hay jugadores'));
+    const text = state.participants.length > 0 ? 'No hay participantes activos' : 'Aún no hay jugadores';
+    leaderboardList.replaceChildren(el('li', 'empty', text));
     return;
   }
   leaderboardList.replaceChildren(
@@ -225,7 +226,7 @@ export function renderRaceBoard(state: HostState): void {
       const bettors = state.horses.find((x) => x.horse === h)?.bets.map((b) => b.username) ?? [];
       row.append(
         horseBadge(h),
-        el('strong', '', `${HORSES[h - 1].name}`),
+        el('strong', '', `${DEFAULT_HORSES[h - 1].name}`),
         el('span', '', `casilla ${race.positions[h]}/${state.trackLength}`),
         el('span', 'bettors', bettors.join(', ')),
       );
@@ -275,7 +276,7 @@ export function renderResult(state: HostState): void {
   resultPanel.hidden = state.phase !== 'finished' || !result;
   if (resultPanel.hidden || !result) return;
 
-  const winner = HORSES[result.winner - 1];
+  const winner = DEFAULT_HORSES[result.winner - 1];
   const title = el('h2');
   title.append('Ganó ', horseBadge(result.winner), ` ${winner.name}`);
   const nodes: HTMLElement[] = [title];
@@ -285,7 +286,7 @@ export function renderResult(state: HostState): void {
     const tied = el('p', 'row');
     tied.append('Empataron: ');
     for (const t of [...result.photoFinish].sort((a, b) => b.value - a.value)) {
-      tied.append(horseBadge(t.horse), ` ${HORSES[t.horse - 1].name} `);
+      tied.append(horseBadge(t.horse), ` ${DEFAULT_HORSES[t.horse - 1].name} `);
     }
     nodes.push(tied);
   }
@@ -293,7 +294,7 @@ export function renderResult(state: HostState): void {
     const order = el('ol', 'final-order');
     for (const h of state.race.order) {
       const li = el('li', 'row');
-      li.append(horseBadge(h), ` ${HORSES[h - 1].name}`);
+      li.append(horseBadge(h), ` ${DEFAULT_HORSES[h - 1].name}`);
       order.append(li);
     }
     nodes.push(el('h3', '', 'Orden final'), order);

@@ -3,6 +3,8 @@ import type { Ack, HostState, PlayerState } from '../shared/types';
 
 let socket: Socket | null = null;
 let overlay: HTMLElement | null = null;
+/** La sesión la cerró el host: no mostrar "Reconectando...". */
+let ended = false;
 
 function showOverlay(visible: boolean): void {
   if (!overlay) {
@@ -17,7 +19,12 @@ function showOverlay(visible: boolean): void {
 export function connect(onState: (state: HostState | PlayerState) => void): Socket {
   socket = io();
   socket.on('connect', () => showOverlay(false));
-  socket.on('disconnect', () => showOverlay(true));
+  socket.on('disconnect', () => showOverlay(!ended));
+  // cuenta eliminada o contraseña restablecida por el host: volver al ingreso
+  socket.on('session:ended', () => {
+    ended = true;
+    location.replace('/');
+  });
   socket.on('connect_error', (err) => {
     if (err.message === 'unauthorized') location.href = '/';
   });

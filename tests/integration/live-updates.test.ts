@@ -68,7 +68,7 @@ describe('actualizaciones en vivo', () => {
     expect(json).not.toMatch(/ana|carla|hosttt/i);
     expect(json.match(/"balance"/g)).toHaveLength(1);
     expect(b.balance).toBe(89);
-    expect(Object.keys(b).sort()).toEqual(['balance', 'myBet', 'myRank', 'myResult', 'odds', 'phase', 'raceOrder', 'role', 'roundId', 'username']);
+    expect(Object.keys(b).sort()).toEqual(['balance', 'horseDefs', 'myBet', 'myRank', 'myResult', 'odds', 'phase', 'raceOrder', 'role', 'roundId', 'username']);
   });
 
   it('betStatus: apostaron y faltan según apuestas y conexión', async () => {

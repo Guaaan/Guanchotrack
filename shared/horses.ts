@@ -23,11 +23,14 @@ export interface Horse {
   number: HorseNumber;
   name: string;
   color: ColorToken;
-  numberColor: ColorToken;
+  numberColor: NumberColor;
   coat: CoatName;
 }
 
-export const HORSES: readonly Horse[] = [
+export type NumberColor = 'white' | 'black';
+
+/** Valores por defecto de los 6 caballos (feature 001); el host puede personalizarlos. */
+export const DEFAULT_HORSES: readonly Horse[] = [
   { number: 1, name: 'Rojo', color: 'red', numberColor: 'white', coat: 'castano' },
   { number: 2, name: 'Naranjo', color: 'orange', numberColor: 'black', coat: 'pinto' },
   { number: 3, name: 'Amarillo', color: 'yellow', numberColor: 'black', coat: 'tordo' },
@@ -35,6 +38,30 @@ export const HORSES: readonly Horse[] = [
   { number: 5, name: 'Azul', color: 'blue', numberColor: 'black', coat: 'pinto' },
   { number: 6, name: 'Rosado', color: 'pink', numberColor: 'black', coat: 'castano' },
 ];
+
+/** Colores de manta: toda la paleta menos tierra (`brown`), pasto (`dark-green`) y fondo (`dark-blue`). */
+export const BLANKET_COLORS: readonly ColorToken[] = [
+  'black',
+  'dark-purple',
+  'dark-grey',
+  'light-grey',
+  'white',
+  'red',
+  'orange',
+  'yellow',
+  'green',
+  'blue',
+  'lavender',
+  'pink',
+  'peach',
+];
+
+const WHITE_NUMBER: readonly ColorToken[] = ['black', 'dark-purple', 'dark-grey', 'red', 'lavender'];
+
+/** Color del número sobre la manta: tabla fija que conserva los valores de 001 (research R8). */
+export function numberColorFor(color: ColorToken): NumberColor {
+  return WHITE_NUMBER.includes(color) ? 'white' : 'black';
+}
 
 export const TRACK_LENGTH = 40;
 

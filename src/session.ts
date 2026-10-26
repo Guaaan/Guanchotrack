@@ -5,7 +5,9 @@ import { applyCssTokens } from './palette';
  * Comprueba la sesión de una vista protegida: sin sesión vuelve al login y con otro rol
  * va a su vista. Pinta la cabecera con el usuario y "Salir". La autorización real está en el servidor.
  */
-export async function guard(role: 'host' | 'player'): Promise<{ username: string; main: HTMLElement }> {
+export async function guard(
+  role: 'host' | 'player',
+): Promise<{ username: string; main: HTMLElement; nameEl: HTMLElement }> {
   applyCssTokens();
   const me = await fetchMe();
   if (!me) {
@@ -32,5 +34,5 @@ export async function guard(role: 'host' | 'player'): Promise<{ username: string
   header.append(name, out);
   const main = document.createElement('main');
   app.replaceChildren(header, main);
-  return { username: me.username, main };
+  return { username: me.username, main, nameEl: name };
 }

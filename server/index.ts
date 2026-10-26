@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs';
 import express from 'express';
 import { Server } from 'socket.io';
 import type { RaceSpeed } from '../shared/horses';
+import { Admin, type LoginAttempts } from './admin';
 import { authRouter } from './auth';
 import { checkInvariant, openDb, type Db } from './db';
 import { Game } from './game';
@@ -75,8 +76,11 @@ export async function createApp(opts: AppOptions): Promise<App> {
     seedFn: opts.seedFn,
   });
 
+  const loginAttempts: LoginAttempts = new Map();
+  const admin = new Admin({ db, game, loginAttempts });
+
   app.use(express.json());
-  app.use(authRouter(db));
+  app.use(authRouter(db, Date.now, loginAttempts));
 
   app.use((req, _res, next) => {
     const page = PAGES[req.path];
@@ -105,7 +109,7 @@ export async function createApp(opts: AppOptions): Promise<App> {
       '⚠ El libro de movimientos no cumple el invariante de conservación de monedas. Revisa coin_transactions y bets antes de seguir jugando.',
     );
   }
-  attachSocket(io, db, game);
+  attachSocket(io, db, game, admin);
 
   await new Promise<void>((resolve) => httpServer.listen(opts.port, '0.0.0.0', resolve));
   const port = (httpServer.address() as AddressInfo).port;

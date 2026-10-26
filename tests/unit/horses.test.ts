@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COATS, DEFAULT_SPEED, HORSES, RACE_SPEEDS, TICK_MS } from '../../shared/horses';
+import { COATS, DEFAULT_SPEED, DEFAULT_HORSES, RACE_SPEEDS, TICK_MS } from '../../shared/horses';
 import { PALETTE } from '../../src/palette';
 
 describe('velocidades', () => {
@@ -12,7 +12,7 @@ describe('velocidades', () => {
 
 describe('pelajes', () => {
   it('fijos por número: 1 castaño, 2 pinto, 3 tordo, 4 palomino, 5 pinto, 6 castaño', () => {
-    expect(HORSES.map((h) => h.coat)).toEqual(['castano', 'pinto', 'tordo', 'palomino', 'pinto', 'castano']);
+    expect(DEFAULT_HORSES.map((h) => h.coat)).toEqual(['castano', 'pinto', 'tordo', 'palomino', 'pinto', 'castano']);
   });
 
   it('usan exactamente los tokens del plan D2', () => {

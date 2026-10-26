@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { HORSES, RACE_SPEEDS, TRACK_LENGTH } from '../../shared/horses';
+import { DEFAULT_HORSES, RACE_SPEEDS, TRACK_LENGTH } from '../../shared/horses';
 import type { HorseNumber, HostState, Phase } from '../../shared/types';
 import { hex } from '../palette';
 import { createHorse, updateGallop } from './horse';
@@ -84,7 +84,7 @@ export function createScene(container: HTMLElement): RaceScene {
   scene.add(sun);
   scene.add(createTrack());
 
-  const horses = HORSES.map((h, i) => {
+  const horses = DEFAULT_HORSES.map((h, i) => {
     const mesh = createHorse({ color: h.color, number: h.number, coat: h.coat });
     mesh.scale.setScalar(HORSE_SCALE);
     mesh.position.set(squareToX(0), 0, laneZ(i));

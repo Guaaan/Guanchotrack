@@ -1,7 +1,11 @@
-import type { RaceSpeed } from './horses';
+import type { ColorToken } from '../src/palette';
+import type { CoatName, Horse, RaceSpeed } from './horses';
 
 export type Phase = 'idle' | 'betting' | 'racing' | 'finished';
 export type HorseNumber = 1 | 2 | 3 | 4 | 5 | 6;
+
+/** Caballo vigente (nombre, manta, número y pelaje elegidos por el host). */
+export type HorseDef = Horse;
 
 export interface HorseOdds {
   horse: HorseNumber;
@@ -37,6 +41,8 @@ export interface PlayerState {
     total: number;
     score: number;
   } | null;
+  /** Los 6 caballos vigentes, por número. */
+  horseDefs: HorseDef[];
 }
 
 export interface HostBetRow {
@@ -78,6 +84,19 @@ export interface HostState {
     isLast: boolean;
   }[];
   trackLength: 40;
+  horseDefs: HorseDef[];
+  /** Jugadores vivos (nunca el host ni eliminados), por nombre; solo para la pestaña Admin. */
+  participants: ParticipantRow[];
+}
+
+export interface ParticipantRow {
+  id: number;
+  username: string;
+  score: number;
+  balance: number;
+  online: boolean;
+  active: boolean;
+  hasActiveBet: boolean;
 }
 
 export type Ack = { ok: true } | { ok: false; error: string };
@@ -95,4 +114,34 @@ export interface AdjustBalancePayload {
   username: string;
   mode: 'set' | 'add' | 'subtract';
   value: number;
+}
+
+export interface SessionEndedPayload {
+  reason: 'removed' | 'password_reset';
+}
+
+export interface SetActivePayload {
+  userId: number;
+  active: boolean;
+}
+
+export interface RenamePayload {
+  userId: number;
+  username: string;
+}
+
+export interface ResetPasswordPayload {
+  userId: number;
+  password: string;
+}
+
+export interface RemovePlayerPayload {
+  userId: number;
+}
+
+export interface UpdateHorsePayload {
+  number: HorseNumber;
+  name: string;
+  color: ColorToken;
+  coat: CoatName;
 }
