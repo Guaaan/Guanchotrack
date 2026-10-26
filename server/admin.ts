@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { DEFAULT_HORSES, validateHorseEdit, type Horse } from '../shared/horses';
 import type {
   RemovePlayerPayload,
   RenamePayload,
@@ -7,7 +8,7 @@ import type {
   SetActivePayload,
 } from '../shared/types';
 import { deleteUserSessions, USERNAME_RE } from './auth';
-import { addTx, balanceOf, carryBalance, logAdmin, type Db } from './db';
+import { addTx, balanceOf, carryBalance, getHorses, logAdmin, type Db } from './db';
 import { GameError, type Game } from './game';
 
 /** Sesiones que `socket.ts` debe cerrar tras la acción (research R4). */
@@ -25,6 +26,9 @@ export interface AdminOptions {
 }
 
 const NONE: AdminResult = { endSessions: [] };
+
+/** Lo que el host elige de un caballo (para `admin_log`). */
+const look = ({ name, color, coat }: Horse) => ({ name, color, coat });
 
 /**
  * Acciones de la pestaña Admin. Cada una valida en servidor, se ejecuta en una transacción con
@@ -148,6 +152,54 @@ export class Admin {
         createdAt: now,
       });
       return { endSessions: [{ userId: user.id, reason: 'removed' }] };
+    });
+  }
+
+  /** Los caballos solo cambian con el juego en espera o con la ronda terminada (FR-015). */
+  private requireNoRound(): void {
+    const phase = this.game.phase();
+    if (phase === 'betting' || phase === 'racing') {
+      throw new GameError('Solo se pueden editar los caballos sin ronda en curso');
+    }
+  }
+
+  /** Nombre, manta y pelaje de un caballo; solo visual, el motor de carrera no los conoce (FR-014). */
+  updateHorse(actorId: number, payload: unknown): AdminResult {
+    return this.apply(() => {
+      this.requireNoRound();
+      const current = getHorses(this.db);
+      const result = validateHorseEdit(current, payload);
+      if (!result.ok) throw new GameError(result.error);
+      const { number, name, color, coat } = result.horse;
+      this.db.prepare('UPDATE horses SET name = ?, color = ?, coat = ? WHERE number = ?').run(name, color, coat, number);
+      logAdmin(this.db, {
+        actorId,
+        action: 'update_horse',
+        target: `horse:${number}`,
+        before: look(current[number - 1]),
+        after: look(result.horse),
+        createdAt: this.now(),
+      });
+      return NONE;
+    });
+  }
+
+  /** Vuelven los 6 caballos de la feature 001 (FR-017). */
+  resetHorses(actorId: number): AdminResult {
+    return this.apply(() => {
+      this.requireNoRound();
+      const before = getHorses(this.db).map(look);
+      const update = this.db.prepare('UPDATE horses SET name = ?, color = ?, coat = ? WHERE number = ?');
+      for (const h of DEFAULT_HORSES) update.run(h.name, h.color, h.coat, h.number);
+      logAdmin(this.db, {
+        actorId,
+        action: 'reset_horses',
+        target: 'horses',
+        before,
+        after: DEFAULT_HORSES.map(look),
+        createdAt: this.now(),
+      });
+      return NONE;
     });
   }
 }

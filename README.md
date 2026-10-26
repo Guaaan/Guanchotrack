@@ -38,6 +38,20 @@ npm run build
 npm start
 ```
 
+## Pestaña Admin
+
+La pantalla del host tiene dos pestañas: **Juego** (la que se proyecta) y **Admin**.
+
+- **Participantes**: solo los activos aparecen en el leaderboard; un inactivo sigue apostando y
+  cobrando. Desde cada fila se puede renombrar, poner una contraseña nueva (cierra sus sesiones),
+  ajustar el saldo o eliminar la cuenta (no si tiene una apuesta activa): sus monedas pasan al
+  pozo acumulado y su nombre queda libre.
+- **Caballos**: nombre, color de manta y pelaje de los 6 caballos, solo sin ronda en curso. Es
+  solo visual: con la misma semilla la carrera da el mismo resultado. "Restablecer caballos"
+  vuelve a los valores por defecto.
+
+Cada acción queda registrada en la tabla `admin_log`.
+
 ## Tests
 
 ```bash
@@ -51,3 +65,5 @@ puertas de paleta PICO-8 y de assets externos.
 
 - Validación paso a paso: [specs/001-group-horse-racing/quickstart.md](specs/001-group-horse-racing/quickstart.md)
 - Especificación y plan: [specs/001-group-horse-racing/](specs/001-group-horse-racing/)
+- Pestaña Admin: [specs/002-host-admin-panel/](specs/002-host-admin-panel/) (validación en
+  [quickstart.md](specs/002-host-admin-panel/quickstart.md))

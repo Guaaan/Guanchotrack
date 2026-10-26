@@ -1,6 +1,7 @@
 import { formatCoins, formatMultiplier } from '../../shared/format';
-import { DEFAULT_SPEED, DEFAULT_HORSES, RACE_SPEEDS, type RaceSpeed } from '../../shared/horses';
+import { DEFAULT_SPEED, RACE_SPEEDS, type RaceSpeed } from '../../shared/horses';
 import type { HostState } from '../../shared/types';
+import { horseDef, horseDefs, onHorseDefsChange } from '../horses';
 import { emitAck } from '../net';
 
 const PHASE_LABEL: Record<HostState['phase'], string> = {
@@ -18,7 +19,7 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text 
 };
 
 function horseBadge(number: number): HTMLElement {
-  const horse = DEFAULT_HORSES[number - 1];
+  const horse = horseDef(number);
   const s = el('span', 'swatch', String(horse.number));
   s.style.background = `var(--c-${horse.color})`;
   s.style.color = `var(--c-${horse.numberColor})`;
@@ -155,18 +156,27 @@ const bettingPot = el('p', 'pot');
 const bettingCarry = el('p');
 const horseCards = el('div', 'horse-cards');
 const cards = new Map<number, { total: HTMLElement; bettors: HTMLElement; mult: HTMLElement; list: HTMLElement }>();
-for (const horse of DEFAULT_HORSES) {
+const cardHeads = new Map<number, HTMLElement>();
+for (const horse of horseDefs()) {
   const card = el('div', 'horse-card');
   const head = el('div', 'row');
-  head.append(horseBadge(horse.number), el('strong', '', horse.name));
   const total = el('p');
   const bettors = el('p');
   const mult = el('p', 'big');
   const list = el('ul', 'bets');
   card.append(head, mult, total, bettors, list);
   cards.set(horse.number, { total, bettors, mult, list });
+  cardHeads.set(horse.number, head);
   horseCards.append(card);
 }
+/** Número, color y nombre vigentes en la cabecera de cada tarjeta. */
+function renderCardHeads(): void {
+  for (const horse of horseDefs()) {
+    cardHeads.get(horse.number)!.replaceChildren(horseBadge(horse.number), el('strong', '', horse.name));
+  }
+}
+renderCardHeads();
+onHorseDefsChange(renderCardHeads);
 const placedList = el('p');
 const missingList = el('p');
 const statusRow = el('div', 'status');
@@ -226,7 +236,7 @@ export function renderRaceBoard(state: HostState): void {
       const bettors = state.horses.find((x) => x.horse === h)?.bets.map((b) => b.username) ?? [];
       row.append(
         horseBadge(h),
-        el('strong', '', `${DEFAULT_HORSES[h - 1].name}`),
+        el('strong', '', horseDef(h).name),
         el('span', '', `casilla ${race.positions[h]}/${state.trackLength}`),
         el('span', 'bettors', bettors.join(', ')),
       );
@@ -276,7 +286,7 @@ export function renderResult(state: HostState): void {
   resultPanel.hidden = state.phase !== 'finished' || !result;
   if (resultPanel.hidden || !result) return;
 
-  const winner = DEFAULT_HORSES[result.winner - 1];
+  const winner = horseDef(result.winner);
   const title = el('h2');
   title.append('Ganó ', horseBadge(result.winner), ` ${winner.name}`);
   const nodes: HTMLElement[] = [title];
@@ -286,7 +296,7 @@ export function renderResult(state: HostState): void {
     const tied = el('p', 'row');
     tied.append('Empataron: ');
     for (const t of [...result.photoFinish].sort((a, b) => b.value - a.value)) {
-      tied.append(horseBadge(t.horse), ` ${DEFAULT_HORSES[t.horse - 1].name} `);
+      tied.append(horseBadge(t.horse), ` ${horseDef(t.horse).name} `);
     }
     nodes.push(tied);
   }
@@ -294,7 +304,7 @@ export function renderResult(state: HostState): void {
     const order = el('ol', 'final-order');
     for (const h of state.race.order) {
       const li = el('li', 'row');
-      li.append(horseBadge(h), ` ${DEFAULT_HORSES[h - 1].name}`);
+      li.append(horseBadge(h), ` ${horseDef(h).name}`);
       order.append(li);
     }
     nodes.push(el('h3', '', 'Orden final'), order);

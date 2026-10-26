@@ -553,6 +553,48 @@ button[hidden] {
   color: var(--c-orange);
 }
 
+/* Editor de caballos (US2): muestras de la paleta permitida para mantas. */
+.horse-editor input:not([type]) {
+  width: 14ch;
+}
+
+.color-picker {
+  gap: 4px;
+}
+
+.horse-editors .error {
+  margin: 4px 0 0;
+}
+
+.horse-editors .error:empty {
+  display: none;
+}
+
+.color-swatch {
+  min-width: 0;
+  min-height: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 3px solid var(--c-dark-grey);
+}
+
+.color-swatch[aria-pressed='true'] {
+  border-color: var(--c-yellow);
+  outline: 3px solid var(--c-yellow);
+}
+
+/* color de otro caballo: no elegible, tachado con un borde rojo */
+.color-swatch.taken {
+  border-color: var(--c-red);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.color-swatch:disabled:not(.taken) {
+  border-color: var(--c-dark-grey);
+}
+
 /* Vista host: texto escalado al ancho para leerse a 4 m en una pantalla de 50" (SC-009). */
 body.host {
   font-size: clamp(16px, 1.2vw, 30px);

@@ -1,6 +1,8 @@
 import { formatCoins } from '../../shared/format';
-import type { HostState, ParticipantRow } from '../../shared/types';
+import { BLANKET_COLORS, numberColorFor, type CoatName } from '../../shared/horses';
+import type { HorseDef, HostState, ParticipantRow } from '../../shared/types';
 import { emitAck } from '../net';
+import type { ColorToken } from '../palette';
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') => {
   const node = document.createElement(tag);
@@ -190,9 +192,154 @@ function updateRow(row: RowView, p: ParticipantRow): void {
   row.remove.title = p.hasActiveBet ? 'Tiene una apuesta activa' : '';
 }
 
-/** Monta la sección de participantes en la pestaña Admin (una sola vez). */
+// ---------- caballos (US2) ----------
+
+const COAT_LABEL: Record<CoatName, string> = { castano: 'Castaño', pinto: 'Pinto', tordo: 'Tordo', palomino: 'Palomino' };
+
+/** Editor de un caballo: borrador local que el `state` no pisa mientras el host lo edita. */
+interface HorseEditor {
+  number: number;
+  badge: HTMLElement;
+  name: HTMLInputElement;
+  swatches: Map<ColorToken, HTMLButtonElement>;
+  coat: HTMLSelectElement;
+  save: HTMLButtonElement;
+  error: HTMLElement;
+  color: ColorToken;
+  dirty: boolean;
+}
+
+const horsesSection = el('section', 'card stack admin');
+const horsesNote = el('p', 'warn', 'Disponible sin ronda en curso');
+const horseList = el('div', 'stack horse-editors');
+const horsesError = el('p', 'error');
+const resetWrap = el('div', 'row');
+const resetTrigger = button('Restablecer caballos', 'danger');
+const resetAsk = el('span', 'row');
+const resetYes = button('Sí, restablecer', 'danger');
+const resetNo = button('Cancelar');
+resetAsk.append(el('span', 'warn', '¿Volver a los nombres, colores y pelajes por defecto?'), resetYes, resetNo);
+resetAsk.hidden = true;
+resetWrap.append(resetTrigger, resetAsk);
+horsesSection.append(el('h2', '', 'Caballos'), horsesNote, horseList, resetWrap, horsesError);
+
+const askReset = (open: boolean) => {
+  resetTrigger.hidden = open;
+  resetAsk.hidden = !open;
+};
+resetTrigger.addEventListener('click', () => {
+  horsesError.textContent = '';
+  askReset(true);
+});
+resetNo.addEventListener('click', () => askReset(false));
+resetYes.addEventListener('click', async () => {
+  resetYes.disabled = true;
+  const ack = await emitAck('admin:resetHorses');
+  resetYes.disabled = false;
+  askReset(false);
+  if (ack.ok) for (const e of editors) e.dirty = false;
+  else horsesError.textContent = ack.error;
+});
+
+const editors: HorseEditor[] = [];
+let lastDefs: HorseDef[] = [];
+
+/** Muestra número y manta del borrador, con el color de número que tocaría. */
+function paintBadge(e: HorseEditor): void {
+  e.badge.style.background = `var(--c-${e.color})`;
+  e.badge.style.color = `var(--c-${numberColorFor(e.color)})`;
+  for (const [token, b] of e.swatches) b.setAttribute('aria-pressed', String(token === e.color));
+}
+
+function createEditor(def: HorseDef): HorseEditor {
+  const row = el('form', 'row horse-editor');
+  const badge = el('span', 'swatch', String(def.number));
+  const name = el('input');
+  name.maxLength = 14;
+  name.setAttribute('aria-label', `Nombre del caballo ${def.number}`);
+  const palette = el('div', 'row color-picker');
+  palette.setAttribute('role', 'group');
+  palette.setAttribute('aria-label', `Color de manta del caballo ${def.number}`);
+  const swatches = new Map<ColorToken, HTMLButtonElement>();
+  const coat = el('select');
+  coat.setAttribute('aria-label', `Pelaje del caballo ${def.number}`);
+  for (const [value, text] of Object.entries(COAT_LABEL)) {
+    const option = el('option', '', text);
+    option.value = value;
+    coat.append(option);
+  }
+  const save = el('button', '', 'Guardar');
+  const error = el('p', 'error');
+  const e: HorseEditor = { number: def.number, badge, name, swatches, coat, save, error, color: def.color, dirty: false };
+  for (const token of BLANKET_COLORS) {
+    const b = button('', 'color-swatch');
+    b.style.background = `var(--c-${token})`;
+    b.title = token;
+    b.setAttribute('aria-label', token);
+    b.addEventListener('click', () => {
+      e.color = token;
+      e.dirty = true;
+      paintBadge(e);
+    });
+    swatches.set(token, b);
+    palette.append(b);
+  }
+  name.addEventListener('input', () => (e.dirty = true));
+  coat.addEventListener('change', () => (e.dirty = true));
+  row.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    error.textContent = '';
+    save.disabled = true;
+    const ack = await emitAck('admin:updateHorse', { number: e.number, name: name.value, color: e.color, coat: coat.value });
+    save.disabled = false;
+    if (ack.ok) {
+      e.dirty = false;
+      fillEditor(e, true);
+    } else {
+      error.textContent = ack.error;
+    }
+  });
+  row.append(badge, name, palette, coat, save);
+  const wrap = el('div');
+  wrap.append(row, error);
+  horseList.append(wrap);
+  return e;
+}
+
+/** Copia el caballo vigente al editor, salvo que el host esté a medio editar. */
+function fillEditor(e: HorseEditor, force = false): void {
+  const def = lastDefs[e.number - 1];
+  if (!def || (e.dirty && !force)) return;
+  e.name.value = def.name;
+  e.coat.value = def.coat;
+  e.color = def.color;
+  paintBadge(e);
+}
+
+export function renderHorses(state: HostState): void {
+  lastDefs = state.horseDefs;
+  if (editors.length === 0) for (const def of state.horseDefs) editors.push(createEditor(def));
+  const locked = state.phase === 'betting' || state.phase === 'racing';
+  horsesNote.hidden = !locked;
+  resetTrigger.disabled = locked;
+  if (locked) askReset(false);
+  for (const e of editors) {
+    fillEditor(e);
+    // colores de los otros caballos: no elegibles (FR-013)
+    const taken = new Set(state.horseDefs.filter((d) => d.number !== e.number).map((d) => d.color));
+    for (const [token, b] of e.swatches) {
+      b.disabled = locked || taken.has(token);
+      b.classList.toggle('taken', taken.has(token));
+    }
+    e.name.disabled = locked;
+    e.coat.disabled = locked;
+    e.save.disabled = locked;
+  }
+}
+
+/** Monta las secciones de la pestaña Admin (una sola vez). */
 export function mountAdmin(root: HTMLElement): void {
-  root.append(section);
+  root.append(section, horsesSection);
 }
 
 /** Lista en vivo: actualiza filas en su sitio para no cerrar un editor abierto. */

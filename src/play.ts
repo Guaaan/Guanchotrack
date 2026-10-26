@@ -1,6 +1,6 @@
 import { formatCoins, formatMultiplier } from '../shared/format';
-import { DEFAULT_HORSES } from '../shared/horses';
-import type { HorseNumber, PlayerState } from '../shared/types';
+import type { HorseDef, HorseNumber, PlayerState } from '../shared/types';
+import { horseDef, horseDefs, onHorseDefsChange, setHorseDefs } from './horses';
 import { connect, emitAck } from './net';
 import { guard } from './session';
 
@@ -13,7 +13,7 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text 
   return node;
 };
 
-const swatch = (horse: (typeof DEFAULT_HORSES)[number]) => {
+const swatch = (horse: HorseDef) => {
   const s = el('span', 'swatch', String(horse.number));
   s.style.background = `var(--c-${horse.color})`;
   s.style.color = `var(--c-${horse.numberColor})`;
@@ -26,13 +26,18 @@ main.append(balanceLine, section);
 
 /** Vista construida para la fase actual; `update` solo toca nodos de texto. */
 let view: { key: string; update(state: PlayerState): void } | null = null;
+// caballos personalizados: reconstruir la vista con los nombres y colores vigentes; el servidor
+// solo acepta cambios sin ronda en curso, así que nunca se pierde una selección de apuesta
+onHorseDefsChange(() => {
+  view = null;
+});
 
 function buildBetting(): typeof view {
   let selected: HorseNumber | null = null;
   const root = el('div', 'stack');
   const grid = el('div', 'horses');
   const buttons = new Map<HorseNumber, { button: HTMLButtonElement; mult: HTMLElement }>();
-  for (const horse of DEFAULT_HORSES) {
+  for (const horse of horseDefs()) {
     const button = el('button', 'horse');
     button.type = 'button';
     const mult = el('span', 'mult');
@@ -96,7 +101,7 @@ function buildBetting(): typeof view {
       submit.textContent = state.myBet ? 'Cambiar apuesta' : 'Apostar';
       myBet.hidden = !state.myBet;
       if (state.myBet) {
-        const horse = DEFAULT_HORSES[state.myBet.horse - 1];
+        const horse = horseDef(state.myBet.horse);
         myBetText.textContent = `Tu apuesta: ${formatCoins(state.myBet.amount)} al ${horse.number} ${horse.name}`;
         potential.textContent = `Recibirías si gana: ${formatCoins(state.myBet.potentialPayout)}`;
       }
@@ -121,11 +126,11 @@ function buildMessage(key: string, title: string): typeof view {
       if (state.phase === 'racing') {
         const bet = state.myBet;
         detail.textContent = bet
-          ? `Apostaste ${formatCoins(bet.amount)} al ${bet.horse} ${DEFAULT_HORSES[bet.horse - 1].name}`
+          ? `Apostaste ${formatCoins(bet.amount)} al ${bet.horse} ${horseDef(bet.horse).name}`
           : 'No apostaste en esta ronda';
       } else if (state.phase === 'finished' && state.myResult) {
         const r = state.myResult;
-        const winner = DEFAULT_HORSES[r.winner - 1];
+        const winner = horseDef(r.winner);
         heading.textContent = !r.participated
           ? 'No participaste en esta ronda'
           : r.won
@@ -143,13 +148,13 @@ function buildMessage(key: string, title: string): typeof view {
         myHorseLine.hidden = mine === null;
         if (mine !== null) {
           const place = order.indexOf(mine) + 1;
-          myHorseLine.replaceChildren('Tu caballo: ', swatch(DEFAULT_HORSES[mine - 1]), ` ${DEFAULT_HORSES[mine - 1].name} · ${finished ? 'terminó' : 'va'} ${place}.º`);
+          myHorseLine.replaceChildren('Tu caballo: ', swatch(horseDef(mine)), ` ${horseDef(mine).name} · ${finished ? 'terminó' : 'va'} ${place}.º`);
         }
         topTitle.textContent = finished ? 'Podio' : 'Adelante';
         topList.replaceChildren(
           ...order.slice(0, 3).map((n, i) => {
             const li = el('li');
-            li.append(`${i + 1}.º `, swatch(DEFAULT_HORSES[n - 1]), ` ${DEFAULT_HORSES[n - 1].name}`);
+            li.append(`${i + 1}.º `, swatch(horseDef(n)), ` ${horseDef(n).name}`);
             if (n === mine) li.classList.add('mine');
             return li;
           }),
@@ -186,5 +191,6 @@ connect((state) => {
   const s = state as PlayerState;
   // el host puede renombrar al jugador sin cerrar su sesión (FR-008)
   nameEl.textContent = s.username;
+  setHorseDefs(s.horseDefs);
   render(s);
 });

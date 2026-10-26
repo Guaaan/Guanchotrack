@@ -1,7 +1,8 @@
 import type { HostState } from '../../shared/types';
+import { setHorseDefs } from '../horses';
 import { connect } from '../net';
 import { guard } from '../session';
-import { mountAdmin, renderParticipants } from './admin';
+import { mountAdmin, renderHorses, renderParticipants } from './admin';
 import { mountPanel, renderBetting, renderControls, renderLeaderboard, renderRaceBoard, renderResult } from './panel';
 import { createScene } from './scene';
 
@@ -58,12 +59,15 @@ let resultReady = false;
 connect((state) => {
   const s = state as HostState;
   latest = s;
+  setHorseDefs(s.horseDefs);
+  scene.setHorses(s.horseDefs);
   scene.setRace(s.phase === 'racing' || s.phase === 'finished' ? s.race : null, s.phase);
   renderControls(s);
   renderBetting(s);
   renderRaceBoard(s);
   renderLeaderboard(s);
   renderParticipants(s);
+  renderHorses(s);
 
   if (s.phase === 'finished' && prevPhase !== 'finished') {
     resultReady = false;

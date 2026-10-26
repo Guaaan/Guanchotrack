@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { COATS, DEFAULT_HORSES, type CoatName } from '../../shared/horses';
+import { COATS, type CoatName, type NumberColor } from '../../shared/horses';
 import type { HorseNumber } from '../../shared/types';
 import { hex, PALETTE, type ColorToken } from '../palette';
 
@@ -134,8 +134,17 @@ function spotsTexture(body: ColorToken, spots: ColorToken, number: number): THRE
  * Caballo low-poly con jinete, mirando hacia +x. Pelaje según `coat`; la manta y la camiseta
  * llevan el color del caballo y su número (a ambos lados de la manta y en la espalda del jinete).
  */
-export function createHorse({ color, number, coat }: { color: ColorToken; number: HorseNumber; coat: CoatName }): THREE.Group {
-  const numberColor = DEFAULT_HORSES[number - 1]?.numberColor ?? 'white';
+export function createHorse({
+  color,
+  number,
+  coat,
+  numberColor,
+}: {
+  color: ColorToken;
+  number: HorseNumber;
+  coat: CoatName;
+  numberColor: NumberColor;
+}): THREE.Group {
   const look = COATS[coat];
   const silk = lambert(color);
   const numbered = new THREE.MeshLambertMaterial({ map: numberTexture(color, numberColor, number) });

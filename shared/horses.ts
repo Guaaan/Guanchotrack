@@ -63,6 +63,56 @@ export function numberColorFor(color: ColorToken): NumberColor {
   return WHITE_NUMBER.includes(color) ? 'white' : 'black';
 }
 
+export const isCoatName = (value: unknown): value is CoatName =>
+  typeof value === 'string' && Object.hasOwn(COATS, value);
+
+/** Recorta los extremos y colapsa los espacios internos repetidos. */
+export function normalizeHorseName(raw: string): string {
+  return raw.trim().replace(/\s+/g, ' ');
+}
+
+/** Letras (con tildes y ñ), números, espacios y guiones; 1–14 caracteres (FR-012). */
+const HORSE_NAME_RE = /^[\p{L}\p{N} -]{1,14}$/u;
+
+export interface HorseEdit {
+  number: HorseNumber;
+  name: string;
+  color: ColorToken;
+  coat: CoatName;
+}
+
+/**
+ * Valida un caballo editado contra los otros 5 de `current` (FR-012, FR-013). Devuelve el caballo
+ * listo para guardar (nombre normalizado, color del número calculado) o el mensaje de error.
+ */
+export function validateHorseEdit(
+  current: readonly Horse[],
+  edit: unknown,
+): { ok: true; horse: Horse } | { ok: false; error: string } {
+  const { number, name, color, coat } = (edit ?? {}) as Partial<Record<keyof HorseEdit, unknown>>;
+  if (!Number.isInteger(number) || (number as number) < 1 || (number as number) > 6) {
+    return { ok: false, error: 'Caballo inválido' };
+  }
+  const others = current.filter((h) => h.number !== number);
+  const clean = typeof name === 'string' ? normalizeHorseName(name) : '';
+  if (!HORSE_NAME_RE.test(clean)) {
+    return { ok: false, error: 'El nombre debe tener entre 1 y 14 caracteres: letras, números, espacios o guiones' };
+  }
+  // sin distinguir mayúsculas, pero sí tildes: "Relampago" ≠ "Relámpago"
+  const lower = clean.toLocaleLowerCase('es');
+  if (others.some((h) => h.name.toLocaleLowerCase('es') === lower)) {
+    return { ok: false, error: 'Otro caballo ya se llama así' };
+  }
+  if (!BLANKET_COLORS.includes(color as ColorToken)) return { ok: false, error: 'Color no permitido' };
+  if (others.some((h) => h.color === color)) return { ok: false, error: 'Otro caballo ya usa ese color' };
+  if (!isCoatName(coat)) return { ok: false, error: 'Pelaje inválido' };
+  const token = color as ColorToken;
+  return {
+    ok: true,
+    horse: { number: number as HorseNumber, name: clean, color: token, numberColor: numberColorFor(token), coat },
+  };
+}
+
 export const TRACK_LENGTH = 40;
 
 /** Milisegundos por tick de cada velocidad; solo cambian la duración, nunca el resultado. */

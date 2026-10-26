@@ -114,9 +114,8 @@ export function attachSocket(io: Server, db: Db, game: Game, admin: Admin): void
         runAdmin(io, ack, () => admin.removePlayer(s.data.userId, payload as RemovePlayerPayload)),
       ),
     );
-    // caballos: llegan en US2
-    on('admin:updateHorse', hostOnly((_s, _p, ack) => ack({ ok: false, error: 'No disponible' })));
-    on('admin:resetHorses', hostOnly((_s, _p, ack) => ack({ ok: false, error: 'No disponible' })));
+    on('admin:updateHorse', hostOnly((s, payload, ack) => runAdmin(io, ack, () => admin.updateHorse(s.data.userId, payload))));
+    on('admin:resetHorses', hostOnly((s, _p, ack) => runAdmin(io, ack, () => admin.resetHorses(s.data.userId))));
 
     socket.on('disconnect', () => {
       game.disconnect(userId);

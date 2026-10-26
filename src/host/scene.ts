@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { DEFAULT_HORSES, RACE_SPEEDS, TRACK_LENGTH } from '../../shared/horses';
-import type { HorseNumber, HostState, Phase } from '../../shared/types';
+import { RACE_SPEEDS, TRACK_LENGTH } from '../../shared/horses';
+import type { HorseDef, HorseNumber, HostState, Phase } from '../../shared/types';
+import { horseDefs } from '../horses';
 import { hex } from '../palette';
 import { createHorse, updateGallop } from './horse';
 import { advancesInWindow, damp, dampOmega, gallopRate, type DampState } from './motion';
@@ -30,6 +31,8 @@ export interface RaceScene {
   /** Reproduce el photo finish si lo hubo; `whenIdle` resuelve cuando termina. */
   finish(photoFinish: PhotoFinish): void;
   whenIdle(): Promise<void>;
+  /** Redibuja los caballos cuyo color, número o pelaje cambiaron (solo fuera de carrera). */
+  setHorses(defs: readonly HorseDef[]): void;
 }
 
 /**
@@ -84,13 +87,16 @@ export function createScene(container: HTMLElement): RaceScene {
   scene.add(sun);
   scene.add(createTrack());
 
-  const horses = DEFAULT_HORSES.map((h, i) => {
-    const mesh = createHorse({ color: h.color, number: h.number, coat: h.coat });
+  const lookOf = (h: HorseDef) => `${h.color}|${h.numberColor}|${h.coat}`;
+  const buildHorse = (h: HorseDef, i: number) => {
+    const mesh = createHorse({ color: h.color, number: h.number, coat: h.coat, numberColor: h.numberColor });
     mesh.scale.setScalar(HORSE_SCALE);
     mesh.position.set(squareToX(0), 0, laneZ(i));
     scene.add(mesh);
     return mesh;
-  });
+  };
+  const horses = horseDefs().map(buildHorse);
+  const looks = horseDefs().map(lookOf);
   const targets = [0, 0, 0, 0, 0, 0];
   const motion: DampState[] = horses.map(() => ({ x: squareToX(0), v: 0 }));
   /** tick → posiciones, para la cadencia según la racha de cada caballo. */
@@ -233,5 +239,23 @@ export function createScene(container: HTMLElement): RaceScene {
       idle = new Promise((resolve) => (resolveIdle = resolve));
     },
     whenIdle: () => idle,
+    setHorses(defs) {
+      defs.forEach((def, i) => {
+        if (looks[i] === lookOf(def)) return;
+        const old = horses[i];
+        scene.remove(old);
+        old.traverse((node) => {
+          if (node instanceof THREE.Mesh) {
+            const materials = Array.isArray(node.material) ? node.material : [node.material];
+            // texturas propias del caballo (manta con número, manchas); geometrías y materiales compartidos se conservan
+            for (const m of materials) (m as THREE.MeshLambertMaterial).map?.dispose();
+          }
+        });
+        const mesh = buildHorse(def, i);
+        mesh.position.x = old.position.x;
+        horses[i] = mesh;
+        looks[i] = lookOf(def);
+      });
+    },
   };
 }
