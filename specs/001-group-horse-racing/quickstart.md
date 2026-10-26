@@ -45,6 +45,8 @@ Debe pasar todo, incluyendo:
 | `race-speed` | velocidad solo del host y antes de iniciar; misma semilla ⇒ mismo resultado; photo finish con empatados y orden |
 | `leaderboard` | orden por aciertos, monedas y nombre; sin el host; conectados |
 | `recovery` | servidor reiniciado en `racing` ⇒ `betting` con apuestas intactas |
+| `player-rank` | posición propia solo en carrera y resultado; sin datos de otros jugadores |
+| `player-race-order` | orden de carrera al celular solo cuando cambia; final igual al host |
 | `palette` / `assets` | sin colores fuera de `src/palette.ts`; sin assets externos |
 
 ## Validación manual (end-to-end)
@@ -74,3 +76,8 @@ Debe pasar todo, incluyendo:
    día. Detener y relanzar el servidor durante una carrera ⇒ vuelve a fase de apuestas.
 10. **Paleta y responsive**: inspeccionar visualmente que no hay colores fuera de PICO-8;
     vista de jugador sin scroll horizontal a 360 px.
+11. **Vista móvil** (US7): en un iPhone y un Android, tocar el campo de monto ⇒ la página no hace
+    zoom. Durante la carrera, el celular muestra "Tu caballo: N … · va X.º" (si apostó), los 3
+    caballos en punta y "Ranking: N.º de M · P puntos", y se actualizan cuando cambia el orden;
+    al terminar, "terminó X.º" y el podio. Con un usuario de 20 caracteres nada se sale de la
+    pantalla a 320 px.

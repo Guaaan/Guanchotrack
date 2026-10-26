@@ -277,7 +277,7 @@ velocidad y mismo resultado con la misma semilla; en la pantalla del host, verif
 
 **Goal**: Mostrar al jugador su posición en el leaderboard general durante la carrera y en el
 resultado, contener los textos en pantallas chicas y evitar el zoom de iPhone en el campo de
-monto (spec US7, FR-028a, FR-029, FR-029a, SC-010; plan D5–D6).
+monto (spec US7, FR-028a, FR-029, FR-029a; plan D5–D6).
 
 **Independent Test**: con varios jugadores y rondas jugadas, abrir `/play` a 320, 360 y 390 px:
 posición visible solo en carrera y resultado, sin datos ajenos, sin desbordes y con campos

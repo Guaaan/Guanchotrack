@@ -8,6 +8,11 @@ html {
   text-size-adjust: 100%;
 }
 
+/* Texto sin suavizado donde el navegador lo permite (solo macOS): menos tonos fuera de paleta (VII). */
+body {
+  -webkit-font-smoothing: none;
+}
+
 html,
 body {
   margin: 0;

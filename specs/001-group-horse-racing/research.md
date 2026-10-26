@@ -188,6 +188,10 @@ constitución v2.0.0 lo exige. No quedan NEEDS CLARIFICATION.
   mientras tenga foco.
 - **Rationale**: re-renderizar con `innerHTML` en cada actualización en vivo borraría lo que el
   jugador está escribiendo.
+- **Actualización US7**: tras probar con celulares reales, la vista de jugador muestra en carrera
+  y resultado el ranking propio, el lugar del caballo apostado y los 3 primeros; el orden de la
+  carrera se envía solo cuando cambia. Campos ≥ 16 px (sin zoom en iPhone) y textos contenidos
+  desde 320 px. Ver plan "Ajustes US7" D5–D7.
 
 ## R14. Reconexión
 

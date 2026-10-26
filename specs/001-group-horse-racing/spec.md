@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-24
 
-**Status**: Draft
+**Status**: Implemented (89/89 tareas; validado con celulares el 2026-10-25)
 
 **Input**: User description: "Construir \"GuanchoTrack\", una app web minimalista de carreras de caballos en 3D para jugar en grupo, con dos roles: un HOST y varios JUGADORES. (Login único con autoregistro, cuenta host predefinida, 6 caballos idénticos, vista de jugador en celular, vista de host en pantalla grande con pista 3D, paneles y controles, carrera por ticks con probabilidad 1/10, apuestas por pozo común sin comisión, puntaje por acierto y persistencia completa.)"
 
@@ -168,6 +168,8 @@ pista.
 9. **Given** la pantalla del host, **When** se mira la pista, **Then** cada caballo muestra su
    pelaje fijo (1 castaño, 2 pinto, 3 tordo, 4 palomino, 5 pinto, 6 castaño), los 6 carriles son
    visibles y el número de cada manta se lee sobre cualquier color.
+10. **Given** el host corrió una carrera en Turbo, **When** abre la siguiente ronda, **Then** el
+    selector sigue en Turbo; **When** recarga la página, **Then** vuelve a Normal.
 
 ---
 
@@ -343,6 +345,8 @@ que ningún texto se desborda y que el campo de monto no provoca zoom al tocarlo
   registrarse en el resultado de la carrera y MUST NOT alterar la probabilidad de avance, el
   largo de la pista ni la secuencia de posiciones: con la misma semilla, el resultado es el mismo
   en cualquier velocidad. Solo el host puede elegirla; cualquier otro valor se rechaza.
+  En la vista del host, el selector MUST mostrar Normal al cargar la página y conservar la
+  última velocidad elegida entre rondas mientras la página siga abierta.
 - **FR-010**: Gana el primer caballo en alcanzar la casilla de meta. Si varios la alcanzan en el
   mismo tick, se resuelve por photo finish: cada empatado recibe un valor aleatorio generado por
   el servidor con la semilla de la carrera y gana el de mayor valor; siempre hay un único
@@ -516,17 +520,16 @@ que ningún texto se desborda y que el campo de monto no provoca zoom al tocarlo
   cuarta parte (aprox. 30 s y 15 s), con el mismo número de ticks.
 - **SC-008**: Tras recargar la página o reiniciar el sistema, ningún usuario pierde su sesión,
   saldo, puntaje ni apuestas activas.
-- **SC-010**: En la vista de jugador, desde 320 px de ancho, ningún texto se desborda de su
-  recuadro y todos los campos de texto tienen al menos 16 px de letra (sin zoom en iPhone).
 - **SC-009**: La vista de jugador es usable sin scroll horizontal en pantallas desde 360 px de
   ancho, y el texto de la vista de host es legible a 4 metros en una pantalla de 50 pulgadas.
 
 ## Assumptions
 
 - Existe una única partida compartida (un host, un grupo); no hay múltiples salas.
-- Largo de pista (40 casillas) y la duración del tick de cada velocidad (200 / 100 / 50 ms)
-  son parámetros configurables; si las pruebas muestran que no se cumple SC-007 en Normal,
-  pueden afinarse sin cambiar la regla de 1 en 10.
+- Largo de pista (40 casillas) y duración del tick de cada velocidad (200 / 100 / 50 ms) son
+  constantes del código (`shared/horses.ts`); si las pruebas mostraran que no se cumple SC-007
+  en Normal, se ajustarían ahí y en FR-009a sin cambiar la regla de 1 en 10 (el test
+  `race-duration` lo verifica).
 - La velocidad elegida no se muestra a los jugadores en el celular (ellos miran la pantalla).
 - La cola del pinto es #000000, igual que su crin.
 - Las monedas son ficticias y enteras; nunca se convierten a dinero real.

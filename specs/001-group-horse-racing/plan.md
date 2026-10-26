@@ -147,7 +147,8 @@ src/                     # cliente
 tests/
 ├── unit/                # race, race-duration, payouts, ranking, format, horses, motion
 ├── integration/         # auth, round-flow, live-updates, sync-load, host-permissions,
-│                        # resets, recovery, race-speed, leaderboard
+│                        # resets, recovery, race-speed, leaderboard, player-rank,
+│                        # player-race-order
 └── gates/               # palette, assets
 ```
 
@@ -271,4 +272,5 @@ mantiene: el jugador solo recibe su posición y el total, nunca datos de otros; 
 
 | Desviación | Por qué | Alternativa más simple descartada |
 |------------|---------|-----------------------------------|
+| Texto HTML con fuentes del sistema (paneles del host y vista de jugador): el navegador suaviza los bordes de las letras y genera tonos intermedios entre el color del texto y el del fondo, ambos de la paleta (principio VII) | Las fuentes del sistema son obligatorias por el principio VI y el suavizado lo aplica el sistema operativo, no el código; se desactiva por CSS donde el navegador lo permite (`-webkit-font-smoothing: none`, solo macOS). En el lienzo 3D la paleta es estricta por cuantización (0 pixeles fuera en las capturas) | Texto en canvas binarizado en toda la UI (pierde accesibilidad, selección de texto y lectores de pantalla); se usa solo en rótulos sobre la escena 3D ("PHOTO FINISH") |
 | `ALTER TABLE results ADD COLUMN speed` condicionado a `PRAGMA table_info` en `openDb` (US4b) | La base `data/guanchotrack.db` ya existe con saldos reales de la partida; `CREATE TABLE IF NOT EXISTS` no agrega columnas | Herramienta de migraciones (dependencia y estructura innecesarias para una columna); borrar la base (pierde usuarios y saldos) |
