@@ -5,7 +5,46 @@ import type { HorseNumber } from '../shared/types';
 
 export type Db = Database.Database;
 
-export type TxKind = 'bet_place' | 'bet_refund' | 'payout' | 'host_adjust' | 'carry_in' | 'carry_out';
+export type TxKind =
+  | 'bet_place'
+  | 'bet_refund'
+  | 'payout'
+  | 'host_adjust'
+  | 'carry_in'
+  | 'carry_out'
+  | 'horse_buy'
+  | 'horse_sale'
+  | 'owner_share';
+
+/**
+ * Libro de movimientos y registro de administración. Se definen aparte porque una base anterior a
+ * la feature 003 se reconstruye con estos `CHECK` ampliados (research R3, R8).
+ */
+const coinTransactionsTable = (name: string) => `
+CREATE TABLE IF NOT EXISTS ${name} (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER REFERENCES users(id),
+  round_id INTEGER REFERENCES rounds(id),
+  bet_id INTEGER REFERENCES bets(id),
+  kind TEXT NOT NULL CHECK (kind IN ('bet_place', 'bet_refund', 'payout', 'host_adjust', 'carry_in', 'carry_out', 'horse_buy', 'horse_sale', 'owner_share')),
+  amount INTEGER NOT NULL CHECK (amount <> 0),
+  actor_id INTEGER NOT NULL REFERENCES users(id),
+  note TEXT,
+  created_at INTEGER NOT NULL
+);`;
+
+const adminLogTable = (name: string) => `
+CREATE TABLE IF NOT EXISTS ${name} (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  actor_id INTEGER NOT NULL REFERENCES users(id),
+  action TEXT NOT NULL CHECK (action IN ('set_active', 'rename', 'reset_password', 'remove_player', 'update_horse', 'reset_horses', 'owner_edit_horse')),
+  target TEXT NOT NULL,
+  before TEXT,
+  after TEXT,
+  created_at INTEGER NOT NULL
+);`;
+
+const COIN_TRANSACTIONS_INDEX = 'CREATE INDEX IF NOT EXISTS coin_transactions_user ON coin_transactions (user_id);';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -58,43 +97,64 @@ CREATE TABLE IF NOT EXISTS results (
   ended_at INTEGER
 );
 
-CREATE TABLE IF NOT EXISTS coin_transactions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER REFERENCES users(id),
-  round_id INTEGER REFERENCES rounds(id),
-  bet_id INTEGER REFERENCES bets(id),
-  kind TEXT NOT NULL CHECK (kind IN ('bet_place', 'bet_refund', 'payout', 'host_adjust', 'carry_in', 'carry_out')),
-  amount INTEGER NOT NULL CHECK (amount <> 0),
-  actor_id INTEGER NOT NULL REFERENCES users(id),
-  note TEXT,
-  created_at INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS coin_transactions_user ON coin_transactions (user_id);
+${coinTransactionsTable('coin_transactions')}
+${COIN_TRANSACTIONS_INDEX}
 
 CREATE TABLE IF NOT EXISTS horses (
   number INTEGER PRIMARY KEY CHECK (number BETWEEN 1 AND 6),
   name TEXT NOT NULL,
   color TEXT NOT NULL,
-  coat TEXT NOT NULL CHECK (coat IN ('castano', 'pinto', 'tordo', 'palomino'))
+  coat TEXT NOT NULL CHECK (coat IN ('castano', 'pinto', 'tordo', 'palomino')),
+  dorsal INTEGER,
+  owner_id INTEGER REFERENCES users(id)
 );
 
-CREATE TABLE IF NOT EXISTS admin_log (
+${adminLogTable('admin_log')}
+
+CREATE TABLE IF NOT EXISTS horse_purchases (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  actor_id INTEGER NOT NULL REFERENCES users(id),
-  action TEXT NOT NULL CHECK (action IN ('set_active', 'rename', 'reset_password', 'remove_player', 'update_horse', 'reset_horses')),
-  target TEXT NOT NULL,
-  before TEXT,
-  after TEXT,
+  horse INTEGER NOT NULL CHECK (horse BETWEEN 1 AND 6),
+  buyer_id INTEGER NOT NULL REFERENCES users(id),
+  seller_id INTEGER REFERENCES users(id),
+  price INTEGER NOT NULL CHECK (price IN (30, 50)),
+  name TEXT NOT NULL,
+  dorsal INTEGER NOT NULL,
+  round_id INTEGER REFERENCES rounds(id),
   created_at INTEGER NOT NULL
 );
 `;
 
-export type AdminAction = 'set_active' | 'rename' | 'reset_password' | 'remove_player' | 'update_horse' | 'reset_horses';
+export type AdminAction =
+  | 'set_active'
+  | 'rename'
+  | 'reset_password'
+  | 'remove_player'
+  | 'update_horse'
+  | 'reset_horses'
+  | 'owner_edit_horse';
 
 /** Agrega la columna si la tabla aún no la tiene (bases creadas antes de la feature que la usa). */
 function addColumn(db: Db, table: string, column: string, definition: string): void {
   const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
   if (!columns.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+/**
+ * Reconstruye `table` con `create(name)` si su definición aún no contiene `marker` (SQLite no
+ * permite cambiar un `CHECK`): copia todas las filas con su `id` en una transacción.
+ */
+function rebuildTable(db: Db, table: string, create: (name: string) => string, marker: string, after = ''): void {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?").get(table) as
+    | { sql: string }
+    | undefined;
+  if (!row || row.sql.includes(marker)) return;
+  db.transaction(() => {
+    db.exec(create(`${table}_new`));
+    db.exec(`INSERT INTO ${table}_new SELECT * FROM ${table}`);
+    db.exec(`DROP TABLE ${table}`);
+    db.exec(`ALTER TABLE ${table}_new RENAME TO ${table}`);
+    if (after) db.exec(after);
+  })();
 }
 
 export function openDb(path: string): Db {
@@ -106,8 +166,16 @@ export function openDb(path: string): Db {
   addColumn(db, 'results', 'speed', "TEXT NOT NULL DEFAULT 'normal' CHECK (speed IN ('normal', 'fast', 'turbo'))");
   addColumn(db, 'users', 'active', 'INTEGER NOT NULL DEFAULT 1');
   addColumn(db, 'users', 'deleted_at', 'INTEGER');
-  const seed = db.prepare('INSERT OR IGNORE INTO horses (number, name, color, coat) VALUES (?, ?, ?, ?)');
-  for (const h of DEFAULT_HORSES) seed.run(h.number, h.name, h.color, h.coat);
+  // Feature 003: dueños, dorsales, parte del dueño y tipos nuevos del libro (idempotente).
+  addColumn(db, 'horses', 'dorsal', 'INTEGER');
+  addColumn(db, 'horses', 'owner_id', 'INTEGER REFERENCES users(id)');
+  addColumn(db, 'results', 'owner_id', 'INTEGER REFERENCES users(id)');
+  addColumn(db, 'results', 'owner_share', 'INTEGER NOT NULL DEFAULT 0');
+  rebuildTable(db, 'coin_transactions', coinTransactionsTable, 'owner_share', COIN_TRANSACTIONS_INDEX);
+  rebuildTable(db, 'admin_log', adminLogTable, 'owner_edit_horse');
+  const seed = db.prepare('INSERT OR IGNORE INTO horses (number, name, color, coat, dorsal) VALUES (?, ?, ?, ?, ?)');
+  for (const h of DEFAULT_HORSES) seed.run(h.number, h.name, h.color, h.coat, h.dorsal);
+  db.exec('UPDATE horses SET dorsal = number WHERE dorsal IS NULL');
   return db;
 }
 
@@ -183,15 +251,43 @@ export function checkInvariant(db: Db): boolean {
   return all + active === adjusts;
 }
 
-/** Los 6 caballos vigentes, por número; el color del número se calcula (FR-013). */
+/** Los 6 caballos vigentes, por carril, con dorsal y dueño; el color del número se calcula (FR-013). */
 export function getHorses(db: Db): Horse[] {
-  const rows = db.prepare('SELECT number, name, color, coat FROM horses ORDER BY number').all() as {
+  const rows = db
+    .prepare(
+      `SELECT h.number, h.dorsal, h.name, h.color, h.coat, u.username AS owner
+       FROM horses h LEFT JOIN users u ON u.id = h.owner_id
+       ORDER BY h.number`,
+    )
+    .all() as {
     number: HorseNumber;
+    dorsal: number;
     name: string;
     color: ColorToken;
     coat: CoatName;
+    owner: string | null;
   }[];
-  return rows.map((r) => ({ ...r, numberColor: numberColorFor(r.color) }));
+  return rows.map(({ number, dorsal, name, color, coat, owner }) => ({
+    number,
+    dorsal,
+    name,
+    color,
+    numberColor: numberColorFor(color),
+    coat,
+    owner,
+  }));
+}
+
+/** Id del dueño del caballo (carril), o `null` si es del establo. */
+export function ownerOf(db: Db, horse: HorseNumber): number | null {
+  const row = db.prepare('SELECT owner_id FROM horses WHERE number = ?').get(horse) as { owner_id: number | null } | undefined;
+  return row?.owner_id ?? null;
+}
+
+/** Carriles con dueño (para descontar la parte del dueño en multiplicadores). */
+export function ownedHorses(db: Db): Set<HorseNumber> {
+  const rows = db.prepare('SELECT number FROM horses WHERE owner_id IS NOT NULL').all() as { number: HorseNumber }[];
+  return new Set(rows.map((r) => r.number));
 }
 
 export interface AdminLogInput {

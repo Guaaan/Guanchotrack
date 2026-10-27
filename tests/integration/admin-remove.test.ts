@@ -164,4 +164,35 @@ describe('eliminar jugador', () => {
     expect(await hostDo('admin:removePlayer', { userId: ids.carla })).toEqual(notFound);
     expect(await hostDo('admin:rename', { userId: ids.carla, username: 'carla2' })).toEqual(notFound);
   });
+
+  it('los caballos del eliminado vuelven al establo con su nombre y número (FR-034)', async () => {
+    const beto = await join('beto');
+    await hostDo('host:adjustBalance', { username: 'beto', mode: 'add', value: 60 });
+    expect(await emitAck(beto.socket, 'horse:buy', { horse: 3, expectedOwner: null })).toEqual({ ok: true });
+    server.db.prepare("UPDATE horses SET name = 'Trueno', dorsal = 77 WHERE number = 3").run();
+    expect(await hostDo('admin:removePlayer', { userId: ids.beto })).toEqual({ ok: true });
+    const h = await hostT.waitFor((s) => !s.participants.some((p) => p.id === ids.beto));
+    expect(h.horseDefs[2]).toMatchObject({ number: 3, name: 'Trueno', dorsal: 77, owner: null });
+    // vuelve a costar 30, al establo
+    const ana = await join('ana');
+    await hostDo('host:adjustBalance', { username: 'ana', mode: 'add', value: 30 });
+    expect(await emitAck(ana.socket, 'horse:buy', { horse: 3, expectedOwner: null })).toEqual({ ok: true });
+    expect(balanceOf(server.db, ids.ana)).toBe(0);
+    expect(checkInvariant(server.db)).toBe(true);
+  });
+
+  it('con una carrera en curso no se puede eliminar a un dueño, sí a quien no tiene caballos', async () => {
+    const beto = await join('beto');
+    await hostDo('host:adjustBalance', { username: 'beto', mode: 'add', value: 30 });
+    expect(await emitAck(beto.socket, 'horse:buy', { horse: 1, expectedOwner: null })).toEqual({ ok: true });
+    await hostDo('host:openRound');
+    // ronda en carrera sin avanzar ticks: así sigue en curso al intentar eliminar
+    server.db.prepare("UPDATE rounds SET phase = 'racing'").run();
+    expect(await hostDo('admin:removePlayer', { userId: ids.beto })).toEqual({
+      ok: false,
+      error: 'No se puede eliminar a un dueño durante la carrera',
+    });
+    expect(idOf('beto')).toBe(ids.beto);
+    expect(await hostDo('admin:removePlayer', { userId: ids.carla })).toEqual({ ok: true });
+  });
 });

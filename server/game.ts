@@ -10,7 +10,7 @@ import type {
   Phase,
   PlayerState,
 } from '../shared/types';
-import { addTx, balanceOf, carryBalance, getHorses, type Db } from './db';
+import { addTx, balanceOf, carryBalance, getHorses, ownedHorses, ownerOf, type Db } from './db';
 import { multipliers, settle, type BetInput } from './domain/payouts';
 import { createRace, raceOrder, stepRace, type RaceState } from './domain/race';
 import { rank } from './domain/ranking';
@@ -77,6 +77,8 @@ interface ResultRow {
   winner_horse: HorseNumber | null;
   photo_finish: string | null;
   speed: RaceSpeed;
+  owner_id: number | null;
+  owner_share: number;
 }
 
 const isHorse = (h: unknown): h is HorseNumber => Number.isInteger(h) && (h as number) >= 1 && (h as number) <= 6;
@@ -135,6 +137,11 @@ export class Game {
     return this.currentRound()?.phase ?? 'idle';
   }
 
+  /** Compras y ediciones de caballos: en cualquier fase menos con la carrera en curso (FR-006). */
+  requireNotRacing(): void {
+    if (this.phase() === 'racing') throw new GameError('No se puede durante la carrera');
+  }
+
   private currentRound(): RoundRow | null {
     return (
       (this.db
@@ -158,7 +165,7 @@ export class Game {
   private finalResult(roundId: number): ResultRow | null {
     return (
       (this.db
-        .prepare("SELECT id, seed, status, winner_horse, photo_finish, speed FROM results WHERE round_id = ? AND status = 'final'")
+        .prepare("SELECT id, seed, status, winner_horse, photo_finish, speed, owner_id, owner_share FROM results WHERE round_id = ? AND status = 'final'")
         .get(roundId) as ResultRow | undefined) ?? null
     );
   }
@@ -275,7 +282,13 @@ export class Game {
 
       const bets = this.roundBets(race.roundId);
       const carry = carryBalance(this.db);
-      const { payouts } = settle(bets.map(toInput), carry, winner);
+      // el dueño no cambia durante la carrera: compras y eliminación de dueños se rechazan (research R6)
+      const ownerId = ownerOf(this.db, winner);
+      const { ownerShare, payouts } = settle(bets.map(toInput), carry, winner, ownerId !== null);
+      if (ownerShare > 0) {
+        addTx(this.db, { userId: ownerId, roundId: race.roundId, kind: 'owner_share', amount: ownerShare, actorId: hostId, note: `horse:${winner}`, createdAt: now });
+      }
+      this.db.prepare('UPDATE results SET owner_id = ?, owner_share = ? WHERE id = ?').run(ownerId, ownerShare, race.resultId);
       const paid = new Map(payouts.map((p) => [p.userId, p.amount]));
       const markBet = this.db.prepare('UPDATE bets SET status = ?, payout = ? WHERE id = ?');
       for (const b of bets) {
@@ -288,8 +301,11 @@ export class Game {
       if (payouts.length > 0) {
         if (carry > 0) addTx(this.db, { userId: null, roundId: race.roundId, kind: 'carry_out', amount: -carry, actorId: hostId, createdAt: now });
       } else {
-        const staked = bets.reduce((s, b) => s + b.amount, 0);
-        if (staked > 0) addTx(this.db, { userId: null, roundId: race.roundId, kind: 'carry_in', amount: staked, actorId: hostId, createdAt: now });
+        // sin acertantes el acumulado gana lo apostado menos la parte del dueño (research R5);
+        // si la parte supera lo apostado, el acumulado paga la diferencia
+        const net = bets.reduce((s, b) => s + b.amount, 0) - ownerShare;
+        if (net > 0) addTx(this.db, { userId: null, roundId: race.roundId, kind: 'carry_in', amount: net, actorId: hostId, createdAt: now });
+        if (net < 0) addTx(this.db, { userId: null, roundId: race.roundId, kind: 'carry_out', amount: net, actorId: hostId, createdAt: now });
       }
       this.db
         .prepare("UPDATE rounds SET phase = 'finished', winner_horse = ?, carry_used = ?, finished_at = ? WHERE id = ?")
@@ -393,6 +409,7 @@ export class Game {
       raceOrder: null,
       myRank: null,
       horseDefs: getHorses(this.db),
+      myHorses: this.myHorses(userId),
     };
     if (!round) return state;
     if (phase === 'racing' || phase === 'finished') {
@@ -415,7 +432,7 @@ export class Game {
 
     if (phase === 'betting') state.odds = this.odds(bets, carry);
     if (mine && phase !== 'finished') {
-      const potential = settle(inputs, carry, mine.horse).payouts.find((p) => p.userId === userId)?.amount ?? 0;
+      const potential = settle(inputs, carry, mine.horse, ownedHorses(this.db).has(mine.horse)).payouts.find((p) => p.userId === userId)?.amount ?? 0;
       state.myBet = { horse: mine.horse, amount: mine.amount, potentialPayout: potential };
     }
     if (phase === 'finished' && round.winner_horse) {
@@ -428,6 +445,18 @@ export class Game {
       };
     }
     return state;
+  }
+
+  /** Caballos propios y lo que cada uno le generó al jugador como dueño (research R9). */
+  private myHorses(userId: number): PlayerState['myHorses'] {
+    return this.db
+      .prepare(
+        `SELECT h.number AS horse,
+                (SELECT COALESCE(SUM(r.owner_share), 0) FROM results r
+                 WHERE r.owner_id = h.owner_id AND r.winner_horse = h.number AND r.status = 'final') AS earned
+         FROM horses h WHERE h.owner_id = ? ORDER BY h.number`,
+      )
+      .all(userId) as PlayerState['myHorses'];
   }
 
   hostState(roster: Roster = this.roster()): HostState {
@@ -443,8 +472,9 @@ export class Game {
     if (phase === 'finished') {
       for (const b of bets) potential.set(b.id, b.payout ?? 0);
     } else {
+      const owned = ownedHorses(this.db);
       for (const h of HORSE_NUMBERS) {
-        const paid = new Map(settle(inputs, carry, h).payouts.map((p) => [p.userId, p.amount]));
+        const paid = new Map(settle(inputs, carry, h, owned.has(h)).payouts.map((p) => [p.userId, p.amount]));
         for (const b of bets) if (b.horse === h) potential.set(b.id, paid.get(b.user_id) ?? 0);
       }
     }
@@ -471,12 +501,18 @@ export class Game {
     let result: HostState['result'] = null;
     if (phase === 'finished' && round?.winner_horse) {
       const row = this.finalResult(round.id);
+      const owner = row?.owner_id
+        ? (this.db
+            .prepare(`SELECT CASE WHEN deleted_at IS NULL THEN username ELSE '${DELETED_NAME}' END AS username FROM users WHERE id = ?`)
+            .get(row.owner_id) as { username: string })
+        : null;
       const winners = bets.filter((b) => b.status === 'won');
       result = {
         winner: round.winner_horse,
         photoFinish: row?.photo_finish ? JSON.parse(row.photo_finish) : null,
         winners: winners.map((b) => ({ username: b.username, payout: b.payout ?? 0 })),
-        carriedOver: winners.length === 0 ? pot : 0,
+        carriedOver: winners.length === 0 ? pot - (row?.owner_share ?? 0) : 0,
+        owner: owner ? { username: owner.username, share: row!.owner_share } : null,
       };
     }
 
@@ -494,7 +530,23 @@ export class Game {
       trackLength: TRACK_LENGTH as 40,
       horseDefs: getHorses(this.db),
       participants: roster.participants,
+      purchases: this.purchases(),
     };
+  }
+
+  /** Últimas 50 compras de caballos, la más reciente primero (FR-031); eliminados anonimizados. */
+  private purchases(): HostState['purchases'] {
+    const name = (alias: string) => `CASE WHEN ${alias}.deleted_at IS NULL THEN ${alias}.username ELSE '${DELETED_NAME}' END`;
+    return this.db
+      .prepare(
+        `SELECT p.created_at AS at, p.horse, p.name, p.dorsal, ${name('b')} AS buyer,
+                CASE WHEN p.seller_id IS NULL THEN NULL ELSE ${name('s')} END AS seller, p.price
+         FROM horse_purchases p
+         JOIN users b ON b.id = p.buyer_id
+         LEFT JOIN users s ON s.id = p.seller_id
+         ORDER BY p.id DESC LIMIT 50`,
+      )
+      .all() as HostState['purchases'];
   }
 
   /** Apostaron: con apuesta en la ronda (conectados o no). Faltan: jugadores conectados sin apuesta. */
@@ -554,7 +606,7 @@ export class Game {
 
 
   private odds(bets: BetRow[], carry: number) {
-    const mult = multipliers(bets.map(toInput), carry);
+    const mult = multipliers(bets.map(toInput), carry, ownedHorses(this.db));
     return HORSE_NUMBERS.map((horse) => {
       const mine = bets.filter((b) => b.horse === horse);
       return { horse, total: mine.reduce((s, b) => s + b.amount, 0), bettors: mine.length, multiplier: mult[horse] };

@@ -43,6 +43,8 @@ export interface PlayerState {
   } | null;
   /** Los 6 caballos vigentes, por número. */
   horseDefs: HorseDef[];
+  /** Caballos propios y lo que cada uno le ha generado como dueño (feature 003). */
+  myHorses: { horse: HorseNumber; earned: number }[];
 }
 
 export interface HostBetRow {
@@ -74,6 +76,8 @@ export interface HostState {
     photoFinish: { horse: HorseNumber; value: number }[] | null;
     winners: { username: string; payout: number }[];
     carriedOver: number;
+    /** Dueño del ganador y su parte del pozo; `null` si el ganador no tiene dueño. */
+    owner: { username: string; share: number } | null;
   } | null;
   leaderboard: {
     username: string;
@@ -87,6 +91,20 @@ export interface HostState {
   horseDefs: HorseDef[];
   /** Jugadores vivos (nunca el host ni eliminados), por nombre; solo para la pestaña Admin. */
   participants: ParticipantRow[];
+  /** Últimas compras de caballos, la más reciente primero (feature 003). */
+  purchases: PurchaseRow[];
+}
+
+export interface PurchaseRow {
+  at: number;
+  horse: HorseNumber;
+  /** Nombre y dorsal del caballo al momento de la compra. */
+  name: string;
+  dorsal: number;
+  buyer: string;
+  /** `null` = establo. */
+  seller: string | null;
+  price: number;
 }
 
 export interface ParticipantRow {
@@ -141,7 +159,20 @@ export interface RemovePlayerPayload {
 
 export interface UpdateHorsePayload {
   number: HorseNumber;
+  dorsal: number;
   name: string;
   color: ColorToken;
   coat: CoatName;
+}
+
+export interface BuyHorsePayload {
+  horse: HorseNumber;
+  /** Dueño que vio el jugador (`null` = establo); si cambió, la compra se rechaza. */
+  expectedOwner: string | null;
+}
+
+export interface EditHorsePayload {
+  horse: HorseNumber;
+  name: string;
+  dorsal: number;
 }

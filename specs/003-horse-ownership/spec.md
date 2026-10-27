@@ -80,9 +80,9 @@ con lo que se paga.
 **Why this priority**: es el motivo para comprar un caballo; sin la ganancia, la propiedad sería
 solo cosmética.
 
-**Independent Test**: con el caballo 2 de "ana", un pozo de 105 (sin acumulado) en que "beto"
-apostó 35 al 2 y "carla" 70 al 4, correr una carrera que gana el 2: ana recibe 10, beto 95, y el
-multiplicador mostrado antes de la carrera para el 2 era el que dio ese pago.
+**Independent Test**: "ana" compra el caballo 2 al establo (pozo acumulado 30); en la ronda
+"beto" apuesta 35 al 2 y "carla" 70 al 4 (pozo 135); gana el 2 ⇒ ana recibe 13, beto 122, y el
+multiplicador mostrado antes de la carrera para el 2 era (135 − 13) ÷ 35.
 
 **Acceptance Scenarios**:
 

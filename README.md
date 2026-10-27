@@ -46,11 +46,27 @@ La pantalla del host tiene dos pestañas: **Juego** (la que se proyecta) y **Adm
   cobrando. Desde cada fila se puede renombrar, poner una contraseña nueva (cierra sus sesiones),
   ajustar el saldo o eliminar la cuenta (no si tiene una apuesta activa): sus monedas pasan al
   pozo acumulado y su nombre queda libre.
-- **Caballos**: nombre, color de manta y pelaje de los 6 caballos, solo sin ronda en curso. Es
-  solo visual: con la misma semilla la carrera da el mismo resultado. "Restablecer caballos"
-  vuelve a los valores por defecto.
+- **Caballos**: nombre, número (1–99), color de manta y pelaje de los 6 caballos, tengan o no
+  dueño, en cualquier momento salvo durante la carrera. Es solo visual: con la misma semilla la
+  carrera da el mismo resultado. "Restablecer caballos" vuelve a los valores por defecto y
+  conserva los dueños.
+- **Compras de caballos**: historial con fecha, caballo, comprador, vendedor y precio.
 
 Cada acción queda registrada en la tabla `admin_log`.
+
+## Propiedad de caballos
+
+En la sección **Caballos** del celular cada jugador ve los 6 caballos con su dueño y precio:
+
+- Un caballo del establo cuesta **30** monedas, que van al pozo acumulado. Uno de otro jugador
+  cuesta **50**, que van íntegras al dueño anterior (no tiene que aceptar). Se puede tener varios.
+- Comprar y editar se puede siempre salvo durante la carrera, y solo con saldo suficiente.
+- El dueño cambia el nombre (1–16 caracteres) y el número (1–99) de sus caballos; pelaje y
+  colores no. Al cambiar de dueño el caballo conserva nombre y número.
+- Si gana un caballo con dueño, el dueño recibe el **10 % del pozo** (redondeado hacia abajo) y
+  el resto se reparte entre los acertantes; si nadie acertó, el resto pasa al acumulado. Los
+  multiplicadores en vivo ya descuentan esa parte. Ser dueño no da puntos.
+- Cada caballo propio muestra cuánto le ha generado a su dueño.
 
 ## Tests
 
@@ -67,3 +83,5 @@ puertas de paleta PICO-8 y de assets externos.
 - Especificación y plan: [specs/001-group-horse-racing/](specs/001-group-horse-racing/)
 - Pestaña Admin: [specs/002-host-admin-panel/](specs/002-host-admin-panel/) (validación en
   [quickstart.md](specs/002-host-admin-panel/quickstart.md))
+- Propiedad de caballos: [specs/003-horse-ownership/](specs/003-horse-ownership/) (validación en
+  [quickstart.md](specs/003-horse-ownership/quickstart.md))

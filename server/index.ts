@@ -13,6 +13,7 @@ import { authRouter } from './auth';
 import { checkInvariant, openDb, type Db } from './db';
 import { Game } from './game';
 import { attachSocket } from './socket';
+import { Stable } from './stable';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -78,6 +79,7 @@ export async function createApp(opts: AppOptions): Promise<App> {
 
   const loginAttempts: LoginAttempts = new Map();
   const admin = new Admin({ db, game, loginAttempts });
+  const stable = new Stable({ db, game });
 
   app.use(express.json());
   app.use(authRouter(db, Date.now, loginAttempts));
@@ -109,7 +111,7 @@ export async function createApp(opts: AppOptions): Promise<App> {
       '⚠ El libro de movimientos no cumple el invariante de conservación de monedas. Revisa coin_transactions y bets antes de seguir jugando.',
     );
   }
-  attachSocket(io, db, game, admin);
+  attachSocket(io, db, game, admin, stable);
 
   await new Promise<void>((resolve) => httpServer.listen(opts.port, '0.0.0.0', resolve));
   const port = (httpServer.address() as AddressInfo).port;

@@ -2,7 +2,7 @@ import type { HostState } from '../../shared/types';
 import { setHorseDefs } from '../horses';
 import { connect } from '../net';
 import { guard } from '../session';
-import { mountAdmin, renderHorses, renderParticipants } from './admin';
+import { mountAdmin, renderHorses, renderParticipants, renderPurchases } from './admin';
 import { mountPanel, renderBetting, renderControls, renderLeaderboard, renderRaceBoard, renderResult } from './panel';
 import { createScene } from './scene';
 
@@ -68,6 +68,7 @@ connect((state) => {
   renderLeaderboard(s);
   renderParticipants(s);
   renderHorses(s);
+  renderPurchases(s);
 
   if (s.phase === 'finished' && prevPhase !== 'finished') {
     resultReady = false;

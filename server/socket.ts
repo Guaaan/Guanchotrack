@@ -3,6 +3,8 @@ import type {
   Ack,
   AdjustBalancePayload,
   BetPlacePayload,
+  BuyHorsePayload,
+  EditHorsePayload,
   RemovePlayerPayload,
   RenamePayload,
   ResetPasswordPayload,
@@ -13,6 +15,7 @@ import type { Admin, AdminResult } from './admin';
 import { parseCookies, SESSION_COOKIE, userFromToken } from './auth';
 import type { Db } from './db';
 import { GameError, type Game } from './game';
+import type { Stable } from './stable';
 
 type AckFn = (ack: Ack) => void;
 type Handler = (socket: Socket, payload: unknown, ack: AckFn) => void;
@@ -56,7 +59,7 @@ export function hostOnly(handler: Handler): Handler {
   };
 }
 
-export function attachSocket(io: Server, db: Db, game: Game, admin: Admin): void {
+export function attachSocket(io: Server, db: Db, game: Game, admin: Admin, stable: Stable): void {
   io.use((socket, next) => {
     const token = parseCookies(socket.handshake.headers.cookie)[SESSION_COOKIE];
     const user = userFromToken(db, token);
@@ -80,6 +83,8 @@ export function attachSocket(io: Server, db: Db, game: Game, admin: Admin): void
       });
     };
 
+    on('horse:buy', (s, payload, ack) => run(ack, () => stable.buyHorse(s.data.userId, payload as BuyHorsePayload)));
+    on('horse:edit', (s, payload, ack) => run(ack, () => stable.editHorse(s.data.userId, payload as EditHorsePayload)));
     on('bet:place', (s, payload, ack) => run(ack, () => game.placeBet(s.data.userId, payload as BetPlacePayload)));
     on('host:openRound', hostOnly((_s, _p, ack) => run(ack, () => game.openRound())));
     on(

@@ -555,7 +555,20 @@ button[hidden] {
 
 /* Editor de caballos (US2): muestras de la paleta permitida para mantas. */
 .horse-editor input:not([type]) {
-  width: 14ch;
+  width: 17ch;
+}
+
+.horse-editor input.dorsal {
+  width: 6ch;
+}
+
+/* Historial de compras: columnas propias (sin los anchos de la tabla de participantes). */
+.purchases-table th:nth-child(n) {
+  width: auto;
+}
+
+.purchases-table[hidden] {
+  display: none;
 }
 
 .color-picker {
@@ -724,4 +737,120 @@ li {
   min-width: 1.8em;
   height: 1.8em;
   flex-shrink: 0;
+}
+
+/* Sección "Caballos" del celular (feature 003): filas que se parten desde 320 px. */
+.stable {
+  margin-top: 24px;
+}
+
+.stable-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stable-horse {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 8px;
+  background: var(--c-black);
+  border: 3px solid var(--c-dark-grey);
+}
+
+.stable-horse.mine {
+  border-color: var(--c-yellow);
+}
+
+.stable-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stable-info .name,
+.stable-info .meta,
+.stable-info .owner {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stable-info .meta,
+.stable-info .owner {
+  font-size: 0.85em;
+  color: var(--c-light-grey);
+}
+
+.stable-horse.mine .owner {
+  color: var(--c-yellow);
+}
+
+.stable-horse .price {
+  font-weight: bold;
+  color: var(--c-peach);
+  text-align: right;
+}
+
+.stable-horse button,
+.stable-horse .error,
+.stable-horse .stable-mine {
+  grid-column: 1 / -1;
+}
+
+.stable-horse .error:empty {
+  display: none;
+}
+
+.stable-horse button[hidden] {
+  display: none;
+}
+
+.stable-mine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.stable-mine[hidden],
+.stable-edit[hidden] {
+  display: none;
+}
+
+.stable-mine .earned {
+  flex: 1 1 auto;
+  color: var(--c-green);
+}
+
+.stable-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5em;
+  gap: 8px;
+  width: 100%;
+}
+
+.stable-edit input {
+  min-width: 0;
+}
+
+.stable-edit button {
+  grid-column: 1 / -1;
+}
+
+button.secondary {
+  color: var(--c-white);
+  background: var(--c-dark-grey);
+}
+
+/* Dueño de cada caballo en los paneles del host (feature 003). */
+.owner {
+  font-size: 0.85em;
+  color: var(--c-light-grey);
+}
+
+.owner-share {
+  color: var(--c-green);
 }

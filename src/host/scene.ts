@@ -87,9 +87,9 @@ export function createScene(container: HTMLElement): RaceScene {
   scene.add(sun);
   scene.add(createTrack());
 
-  const lookOf = (h: HorseDef) => `${h.color}|${h.numberColor}|${h.coat}`;
+  const lookOf = (h: HorseDef) => `${h.color}|${h.numberColor}|${h.coat}|${h.dorsal}`;
   const buildHorse = (h: HorseDef, i: number) => {
-    const mesh = createHorse({ color: h.color, number: h.number, coat: h.coat, numberColor: h.numberColor });
+    const mesh = createHorse({ color: h.color, number: h.number, dorsal: h.dorsal, coat: h.coat, numberColor: h.numberColor });
     mesh.scale.setScalar(HORSE_SCALE);
     mesh.position.set(squareToX(0), 0, laneZ(i));
     scene.add(mesh);

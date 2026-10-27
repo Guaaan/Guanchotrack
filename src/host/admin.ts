@@ -201,6 +201,8 @@ interface HorseEditor {
   number: number;
   badge: HTMLElement;
   name: HTMLInputElement;
+  dorsal: HTMLInputElement;
+  owner: HTMLElement;
   swatches: Map<ColorToken, HTMLButtonElement>;
   coat: HTMLSelectElement;
   save: HTMLButtonElement;
@@ -210,7 +212,7 @@ interface HorseEditor {
 }
 
 const horsesSection = el('section', 'card stack admin');
-const horsesNote = el('p', 'warn', 'Disponible sin ronda en curso');
+const horsesNote = el('p', 'warn', 'No disponible durante la carrera');
 const horseList = el('div', 'stack horse-editors');
 const horsesError = el('p', 'error');
 const resetWrap = el('div', 'row');
@@ -218,10 +220,21 @@ const resetTrigger = button('Restablecer caballos', 'danger');
 const resetAsk = el('span', 'row');
 const resetYes = button('Sí, restablecer', 'danger');
 const resetNo = button('Cancelar');
-resetAsk.append(el('span', 'warn', '¿Volver a los nombres, colores y pelajes por defecto?'), resetYes, resetNo);
+resetAsk.append(el('span', 'warn', '¿Volver a los nombres, números, colores y pelajes por defecto? Los dueños se conservan'), resetYes, resetNo);
 resetAsk.hidden = true;
 resetWrap.append(resetTrigger, resetAsk);
 horsesSection.append(el('h2', '', 'Caballos'), horsesNote, horseList, resetWrap, horsesError);
+
+// Historial de compras de caballos (feature 003, FR-031)
+const purchasesSection = el('section', 'card stack admin');
+const purchasesTable = el('table', 'admin-table purchases-table');
+const purchasesBody = el('tbody');
+const purchasesHead = el('tr');
+for (const h of ['Fecha', 'Caballo', 'Comprador', 'Vendedor', 'Precio']) purchasesHead.append(el('th', '', h));
+purchasesTable.append(el('thead'), purchasesBody);
+purchasesTable.tHead!.append(purchasesHead);
+const purchasesEmpty = el('p', '', 'Aún no hay compras');
+purchasesSection.append(el('h2', '', 'Compras de caballos'), purchasesTable, purchasesEmpty);
 
 const askReset = (open: boolean) => {
   resetTrigger.hidden = open;
@@ -253,16 +266,23 @@ function paintBadge(e: HorseEditor): void {
 
 function createEditor(def: HorseDef): HorseEditor {
   const row = el('form', 'row horse-editor');
-  const badge = el('span', 'swatch', String(def.number));
+  const badge = el('span', 'swatch', String(def.dorsal));
   const name = el('input');
-  name.maxLength = 14;
-  name.setAttribute('aria-label', `Nombre del caballo ${def.number}`);
+  name.maxLength = 16;
+  name.setAttribute('aria-label', `Nombre del caballo del carril ${def.number}`);
+  const dorsal = el('input', 'dorsal');
+  dorsal.type = 'number';
+  dorsal.min = '1';
+  dorsal.max = '99';
+  dorsal.step = '1';
+  dorsal.setAttribute('aria-label', `Número del caballo del carril ${def.number}`);
+  const owner = el('span', 'owner');
   const palette = el('div', 'row color-picker');
   palette.setAttribute('role', 'group');
-  palette.setAttribute('aria-label', `Color de manta del caballo ${def.number}`);
+  palette.setAttribute('aria-label', `Color de manta del caballo del carril ${def.number}`);
   const swatches = new Map<ColorToken, HTMLButtonElement>();
   const coat = el('select');
-  coat.setAttribute('aria-label', `Pelaje del caballo ${def.number}`);
+  coat.setAttribute('aria-label', `Pelaje del caballo del carril ${def.number}`);
   for (const [value, text] of Object.entries(COAT_LABEL)) {
     const option = el('option', '', text);
     option.value = value;
@@ -270,7 +290,7 @@ function createEditor(def: HorseDef): HorseEditor {
   }
   const save = el('button', '', 'Guardar');
   const error = el('p', 'error');
-  const e: HorseEditor = { number: def.number, badge, name, swatches, coat, save, error, color: def.color, dirty: false };
+  const e: HorseEditor = { number: def.number, badge, name, dorsal, owner, swatches, coat, save, error, color: def.color, dirty: false };
   for (const token of BLANKET_COLORS) {
     const b = button('', 'color-swatch');
     b.style.background = `var(--c-${token})`;
@@ -285,12 +305,22 @@ function createEditor(def: HorseDef): HorseEditor {
     palette.append(b);
   }
   name.addEventListener('input', () => (e.dirty = true));
+  dorsal.addEventListener('input', () => {
+    e.dirty = true;
+    badge.textContent = dorsal.value;
+  });
   coat.addEventListener('change', () => (e.dirty = true));
   row.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     error.textContent = '';
     save.disabled = true;
-    const ack = await emitAck('admin:updateHorse', { number: e.number, name: name.value, color: e.color, coat: coat.value });
+    const ack = await emitAck('admin:updateHorse', {
+      number: e.number,
+      dorsal: Number(dorsal.value),
+      name: name.value,
+      color: e.color,
+      coat: coat.value,
+    });
     save.disabled = false;
     if (ack.ok) {
       e.dirty = false;
@@ -299,7 +329,7 @@ function createEditor(def: HorseDef): HorseEditor {
       error.textContent = ack.error;
     }
   });
-  row.append(badge, name, palette, coat, save);
+  row.append(badge, name, dorsal, palette, coat, owner, save);
   const wrap = el('div');
   wrap.append(row, error);
   horseList.append(wrap);
@@ -311,6 +341,8 @@ function fillEditor(e: HorseEditor, force = false): void {
   const def = lastDefs[e.number - 1];
   if (!def || (e.dirty && !force)) return;
   e.name.value = def.name;
+  e.dorsal.value = String(def.dorsal);
+  e.badge.textContent = String(def.dorsal);
   e.coat.value = def.coat;
   e.color = def.color;
   paintBadge(e);
@@ -319,12 +351,15 @@ function fillEditor(e: HorseEditor, force = false): void {
 export function renderHorses(state: HostState): void {
   lastDefs = state.horseDefs;
   if (editors.length === 0) for (const def of state.horseDefs) editors.push(createEditor(def));
-  const locked = state.phase === 'betting' || state.phase === 'racing';
+  // fuera de la carrera, tenga o no dueño (003 FR-012, FR-013)
+  const locked = state.phase === 'racing';
   horsesNote.hidden = !locked;
   resetTrigger.disabled = locked;
   if (locked) askReset(false);
   for (const e of editors) {
     fillEditor(e);
+    const owner = state.horseDefs[e.number - 1].owner;
+    e.owner.textContent = owner === null ? 'Establo' : `Dueño: ${owner}`;
     // colores de los otros caballos: no elegibles (FR-013)
     const taken = new Set(state.horseDefs.filter((d) => d.number !== e.number).map((d) => d.color));
     for (const [token, b] of e.swatches) {
@@ -332,6 +367,7 @@ export function renderHorses(state: HostState): void {
       b.classList.toggle('taken', taken.has(token));
     }
     e.name.disabled = locked;
+    e.dorsal.disabled = locked;
     e.coat.disabled = locked;
     e.save.disabled = locked;
   }
@@ -339,7 +375,32 @@ export function renderHorses(state: HostState): void {
 
 /** Monta las secciones de la pestaña Admin (una sola vez). */
 export function mountAdmin(root: HTMLElement): void {
-  root.append(section, horsesSection);
+  root.append(section, horsesSection, purchasesSection);
+}
+
+const dateTime = new Intl.DateTimeFormat('es', { dateStyle: 'short', timeStyle: 'short' });
+let purchasesKey = '';
+
+/** Historial de compras, la más reciente primero (feature 003). */
+export function renderPurchases(state: HostState): void {
+  const key = JSON.stringify(state.purchases);
+  if (key === purchasesKey) return;
+  purchasesKey = key;
+  purchasesBody.replaceChildren(
+    ...state.purchases.map((p) => {
+      const tr = el('tr');
+      tr.append(
+        el('td', '', dateTime.format(p.at)),
+        el('td', 'name', `${p.dorsal} ${p.name}`),
+        el('td', 'name', p.buyer),
+        el('td', 'name', p.seller ?? 'Establo'),
+        el('td', '', formatCoins(p.price)),
+      );
+      return tr;
+    }),
+  );
+  purchasesTable.hidden = state.purchases.length === 0;
+  purchasesEmpty.hidden = state.purchases.length > 0;
 }
 
 /** Lista en vivo: actualiza filas en su sitio para no cerrar un editor abierto. */

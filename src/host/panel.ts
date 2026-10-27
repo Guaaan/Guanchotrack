@@ -18,9 +18,15 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text 
   return node;
 };
 
+/** "de ana" o "del establo" (003 FR-029). */
+const ownerText = (number: number) => {
+  const owner = horseDef(number).owner;
+  return owner === null ? 'del establo' : `de ${owner}`;
+};
+
 function horseBadge(number: number): HTMLElement {
   const horse = horseDef(number);
-  const s = el('span', 'swatch', String(horse.number));
+  const s = el('span', 'swatch', String(horse.dorsal));
   s.style.background = `var(--c-${horse.color})`;
   s.style.color = `var(--c-${horse.numberColor})`;
   return s;
@@ -172,7 +178,9 @@ for (const horse of horseDefs()) {
 /** Número, color y nombre vigentes en la cabecera de cada tarjeta. */
 function renderCardHeads(): void {
   for (const horse of horseDefs()) {
-    cardHeads.get(horse.number)!.replaceChildren(horseBadge(horse.number), el('strong', '', horse.name));
+    cardHeads
+      .get(horse.number)!
+      .replaceChildren(horseBadge(horse.number), el('strong', '', horse.name), el('span', 'owner', ownerText(horse.number)));
   }
 }
 renderCardHeads();
@@ -237,6 +245,7 @@ export function renderRaceBoard(state: HostState): void {
       row.append(
         horseBadge(h),
         el('strong', '', horseDef(h).name),
+        el('span', 'owner', ownerText(h)),
         el('span', '', `casilla ${race.positions[h]}/${state.trackLength}`),
         el('span', 'bettors', bettors.join(', ')),
       );
@@ -290,6 +299,7 @@ export function renderResult(state: HostState): void {
   const title = el('h2');
   title.append('Ganó ', horseBadge(result.winner), ` ${winner.name}`);
   const nodes: HTMLElement[] = [title];
+  if (result.owner) nodes.push(el('p', 'big owner-share', `Dueño ${result.owner.username} recibe ${formatCoins(result.owner.share)}`));
   if (result.photoFinish) {
     // empatados en la meta, del más cercano a la meta al más lejano (FR-033)
     nodes.push(el('p', 'big', 'PHOTO FINISH'));
@@ -304,7 +314,7 @@ export function renderResult(state: HostState): void {
     const order = el('ol', 'final-order');
     for (const h of state.race.order) {
       const li = el('li', 'row');
-      li.append(horseBadge(h), ` ${horseDef(h).name}`);
+      li.append(horseBadge(h), ` ${horseDef(h).name} `, el('span', 'owner', ownerText(h)));
       order.append(li);
     }
     nodes.push(el('h3', '', 'Orden final'), order);

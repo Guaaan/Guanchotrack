@@ -1,13 +1,23 @@
 <!--
 Sync Impact Report
-- Version change: 2.0.0 → 2.0.1 (PATCH: aclaración de redacción, sin cambio semántico)
+- Version change: 2.0.1 → 2.1.0 (MINOR: ampliación material por caballos con dueño)
 - Principios modificados:
-  XIII. Control Total del Host: redacción explícita de ambos reinicios — reiniciar la ronda de
-     apuestas devuelve íntegramente las monedas apostadas; reiniciar la carrera en curso
-     conserva las apuestas activas sin pérdida y vuelve a la fase de apuestas.
-- Principios sin cambios: I–XII
-- Secciones añadidas/eliminadas/modificadas: ninguna
-- Impacto en artefactos: ninguno (spec 001 FR-035/FR-036 y plan ya alineados)
+  X. Apuestas por Pozo Común (Parimutuel): si el ganador tiene dueño, el dueño recibe el
+     10 % del pozo (floor) y el resto va por parimutuel a los acertantes; sin dueño, 100 % a
+     los apostadores. Sigue sin comisión de la casa.
+  XI. Transparencia de Apuestas en Tiempo Real: los multiplicadores en vivo ya descuentan la
+     parte del dueño.
+  XII. Conservación de Monedas: la compra de caballos solo transfiere monedas entre cuentas
+     existentes (jugador → pozo acumulado, jugador → jugador); compras y parte del dueño se
+     registran en el libro de movimientos.
+- Principios sin cambios: I–IX, XIII
+- Secciones modificadas: Flujo de Desarrollo y Puertas de Calidad (tests de parte del dueño
+  y conservación en compras)
+- Secciones añadidas/eliminadas: ninguna
+- Impacto en artefactos: lógica de pagos (función pura de liquidación y pago potencial) y
+  sus tests deberán actualizarse en la feature que introduzca dueños de caballos.
+- Decisión por defecto a confirmar: si gana un caballo con dueño y nadie le apostó, el dueño
+  cobra su 10 % y el 90 % restante se acumula para la siguiente ronda.
 - TODOs diferidos: ninguno
 -->
 
@@ -123,16 +133,20 @@ jugador.
   un único pozo común. El pago por moneda de cada
   caballo depende de cuánto se apostó a él respecto del total del pozo: cuanto más se apuesta
   a un caballo, menor es su pago por moneda.
-- La casa NUNCA retiene comisión: el pozo íntegro MUST repartirse entre las apuestas
-  ganadoras, en proporción a lo apostado por cada una.
+- La casa NUNCA retiene comisión: todo el pozo MUST repartirse entre jugadores.
+- Si el caballo ganador tiene dueño, el dueño MUST recibir exactamente
+  `floor(pozo × 10 / 100)` monedas, y el resto del pozo MUST repartirse entre las apuestas
+  ganadoras en proporción a lo apostado por cada una. Si el ganador no tiene dueño, el 100 %
+  del pozo MUST repartirse entre las apuestas ganadoras.
 - Como la moneda es entera, el reparto MUST usar una regla de redondeo determinista y
-  documentada que asigne el resto sobrante a ganadores, de modo que la suma de pagos sea
-  exactamente igual al pozo.
-- Si ninguna apuesta acierta al ganador, el pozo completo MUST acumularse para la siguiente
-  ronda liquidada; nunca se pierde ni se asigna a la casa.
+  documentada que asigne el resto sobrante a ganadores, de modo que la parte del dueño más
+  la suma de pagos sea exactamente igual al pozo.
+- Si ninguna apuesta acierta al ganador, la parte del pozo destinada a apostadores MUST
+  acumularse para la siguiente ronda liquidada; nunca se pierde ni se asigna a la casa. La
+  parte del dueño, si lo hay, se le paga igualmente.
 
 **Rationale**: los jugadores compiten entre sí, no contra la casa; el pago refleja el
-consenso del grupo.
+consenso del grupo, y tener un caballo da un incentivo acotado y predecible.
 
 ### XI. Transparencia de Apuestas en Tiempo Real
 
@@ -141,6 +155,8 @@ consenso del grupo.
   cancelada.
 - El pago potencial mostrado MUST calcularse con la misma función pura que liquida la carrera,
   de forma que coincida exactamente con el pago final si el pozo no cambia.
+- Los multiplicadores mostrados en vivo MUST descontar ya la parte del dueño de cada caballo
+  que lo tenga; nunca se muestra un pago que la liquidación no vaya a abonar.
 - Al cerrarse la fase de apuestas, los pagos potenciales quedan congelados y son los que se
   liquidan.
 
@@ -150,9 +166,12 @@ consenso del grupo.
 
 - Ninguna operación puede crear ni destruir monedas (MUST NOT), salvo los ajustes explícitos
   del host. La suma de saldos de jugadores, apuestas activas y pozo acumulado MUST ser
-  invariante ante apuestas, cambios, devoluciones, liquidaciones y reinicios.
-- Todo movimiento de saldo (apuesta, modificación, devolución, pago, ajuste del host,
-  entrada o salida del pozo acumulado) MUST
+  invariante ante apuestas, cambios, devoluciones, liquidaciones, compras de caballos y
+  reinicios.
+- La compra de caballos MUST limitarse a transferir monedas entre cuentas existentes
+  (jugador → pozo acumulado, o jugador → jugador); nunca crea ni destruye monedas.
+- Todo movimiento de saldo (apuesta, modificación, devolución, pago, parte del dueño,
+  compra de caballo, ajuste del host, entrada o salida del pozo acumulado) MUST
   registrarse en un libro de movimientos persistente, solo de inserción, con actor, motivo,
   importe, ronda y fecha.
 - El saldo de cada jugador MUST poder reconstruirse a partir del libro de movimientos.
@@ -194,8 +213,10 @@ romper la conservación de monedas.
   I–XIII; cualquier desviación se documenta y justifica en la sección de complejidad.
 - Puertas obligatorias antes de integrar:
   - Tests unitarios de lógica de carrera, pagos y ranking en verde, incluyendo: reparto
-    parimutuel sin comisión, regla de redondeo, caso sin ganadores con acumulación del
-    pozo, igualdad entre pago potencial y pago final, y conservación de monedas en apuestas, pagos y reinicios.
+    parimutuel sin comisión, parte del dueño (10 % redondeado hacia abajo, y 0 sin dueño),
+    regla de redondeo, caso sin ganadores con acumulación del pozo, igualdad entre pago
+    potencial y pago final, y conservación de monedas en apuestas, pagos, compras de
+    caballos y reinicios.
   - Comprobación automática de que no existen literales de color fuera del módulo de tokens
     ni valores fuera de la paleta PICO-8.
   - Comprobación de que no se cargan assets externos (modelos, texturas, imágenes, fuentes).
@@ -213,4 +234,4 @@ romper la conservación de monedas.
 - Cumplimiento: toda revisión de spec, plan y código MUST verificar conformidad con estos
   principios; la complejidad añadida MUST justificarse.
 
-**Version**: 2.0.1 | **Ratified**: 2026-10-24 | **Last Amended**: 2026-10-24
+**Version**: 2.1.0 | **Ratified**: 2026-10-24 | **Last Amended**: 2026-10-26

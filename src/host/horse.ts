@@ -62,10 +62,11 @@ function canvasTexture(canvas: HTMLCanvasElement): THREE.CanvasTexture {
 }
 
 /**
- * Número de la manta: fondo del color del caballo, dígito sans-serif de peso normal en su
- * color de número y un contorno fino del color opuesto para leerse sobre cualquier manta.
+ * Número de la manta (dorsal 1–99): fondo del color del caballo, dígitos sans-serif de peso
+ * normal en su color de número y un contorno fino del color opuesto para leerse sobre cualquier
+ * manta. Con dos cifras la letra se achica para que quepan (003 research R11).
  */
-function numberTexture(color: ColorToken, numberColor: ColorToken, number: number): THREE.CanvasTexture {
+function numberTexture(color: ColorToken, numberColor: ColorToken, dorsal: number): THREE.CanvasTexture {
   const size = 128;
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -73,15 +74,16 @@ function numberTexture(color: ColorToken, numberColor: ColorToken, number: numbe
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = PALETTE[color];
   ctx.fillRect(0, 0, size, size);
-  ctx.font = '400 104px system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+  const text = String(dorsal);
+  ctx.font = `400 ${text.length > 1 ? 80 : 104}px system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round';
   ctx.lineWidth = 8;
   ctx.strokeStyle = PALETTE[numberColor === 'white' ? 'black' : 'white'];
-  ctx.strokeText(String(number), size / 2, size / 2 + 6);
+  ctx.strokeText(text, size / 2, size / 2 + 6);
   ctx.fillStyle = PALETTE[numberColor];
-  ctx.fillText(String(number), size / 2, size / 2 + 6);
+  ctx.fillText(text, size / 2, size / 2 + 6);
   return canvasTexture(canvas);
 }
 
@@ -137,17 +139,20 @@ function spotsTexture(body: ColorToken, spots: ColorToken, number: number): THRE
 export function createHorse({
   color,
   number,
+  dorsal,
   coat,
   numberColor,
 }: {
   color: ColorToken;
+  /** Carril: siembra las manchas del pinto, que no cambian al cambiar el dorsal. */
   number: HorseNumber;
+  dorsal: number;
   coat: CoatName;
   numberColor: NumberColor;
 }): THREE.Group {
   const look = COATS[coat];
   const silk = lambert(color);
-  const numbered = new THREE.MeshLambertMaterial({ map: numberTexture(color, numberColor, number) });
+  const numbered = new THREE.MeshLambertMaterial({ map: numberTexture(color, numberColor, dorsal) });
   const plainCoat = lambert(look.body);
   const patterned = look.spots
     ? new THREE.MeshLambertMaterial({ map: spotsTexture(look.body, look.spots, number) })

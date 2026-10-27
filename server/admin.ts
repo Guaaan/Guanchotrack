@@ -28,7 +28,7 @@ export interface AdminOptions {
 const NONE: AdminResult = { endSessions: [] };
 
 /** Lo que el host elige de un caballo (para `admin_log`). */
-const look = ({ name, color, coat }: Horse) => ({ name, color, coat });
+const look = ({ name, dorsal, color, coat }: Horse) => ({ name, dorsal, color, coat });
 
 /**
  * Acciones de la pestaña Admin. Cada una valida en servidor, se ejecuta en una transacción con
@@ -133,12 +133,17 @@ export class Admin {
       const user = this.player(userId);
       const bet = this.db.prepare("SELECT 1 FROM bets WHERE user_id = ? AND status = 'active'").get(user.id);
       if (bet) throw new GameError('No se puede eliminar: tiene una apuesta activa');
+      // el dueño del ganador no puede cambiar durante la carrera (research R6)
+      const owns = this.db.prepare('SELECT 1 FROM horses WHERE owner_id = ?').get(user.id);
+      if (owns && this.game.phase() === 'racing') throw new GameError('No se puede eliminar a un dueño durante la carrera');
       const now = this.now();
       const balance = balanceOf(this.db, user.id);
       if (balance > 0) {
         addTx(this.db, { userId: user.id, kind: 'carry_in', amount: -balance, actorId, note: 'remove', createdAt: now });
         addTx(this.db, { userId: null, kind: 'carry_in', amount: balance, actorId, note: `remove ${user.id}`, createdAt: now });
       }
+      // sus caballos vuelven al establo con su nombre y número; nada se devuelve (FR-034)
+      this.db.prepare('UPDATE horses SET owner_id = NULL WHERE owner_id = ?').run(user.id);
       this.db
         .prepare("UPDATE users SET username = '#deleted-' || id, active = 0, deleted_at = ? WHERE id = ?")
         .run(now, user.id);
@@ -155,23 +160,20 @@ export class Admin {
     });
   }
 
-  /** Los caballos solo cambian con el juego en espera o con la ronda terminada (FR-015). */
-  private requireNoRound(): void {
-    const phase = this.game.phase();
-    if (phase === 'betting' || phase === 'racing') {
-      throw new GameError('Solo se pueden editar los caballos sin ronda en curso');
-    }
-  }
-
-  /** Nombre, manta y pelaje de un caballo; solo visual, el motor de carrera no los conoce (FR-014). */
+  /**
+   * Nombre, número, manta y pelaje de un caballo, tenga o no dueño (003 FR-012); el dueño no
+   * cambia. Solo visual: el motor de carrera no los conoce (002 FR-014). Fuera de la carrera.
+   */
   updateHorse(actorId: number, payload: unknown): AdminResult {
     return this.apply(() => {
-      this.requireNoRound();
+      this.game.requireNotRacing();
       const current = getHorses(this.db);
       const result = validateHorseEdit(current, payload);
       if (!result.ok) throw new GameError(result.error);
-      const { number, name, color, coat } = result.horse;
-      this.db.prepare('UPDATE horses SET name = ?, color = ?, coat = ? WHERE number = ?').run(name, color, coat, number);
+      const { number, dorsal, name, color, coat } = result.horse;
+      this.db
+        .prepare('UPDATE horses SET name = ?, dorsal = ?, color = ?, coat = ? WHERE number = ?')
+        .run(name, dorsal, color, coat, number);
       logAdmin(this.db, {
         actorId,
         action: 'update_horse',
@@ -184,13 +186,13 @@ export class Admin {
     });
   }
 
-  /** Vuelven los 6 caballos de la feature 001 (FR-017). */
+  /** Vuelven los 6 caballos de la feature 001 (002 FR-017); los dueños se conservan (003 FR-014). */
   resetHorses(actorId: number): AdminResult {
     return this.apply(() => {
-      this.requireNoRound();
+      this.game.requireNotRacing();
       const before = getHorses(this.db).map(look);
-      const update = this.db.prepare('UPDATE horses SET name = ?, color = ?, coat = ? WHERE number = ?');
-      for (const h of DEFAULT_HORSES) update.run(h.name, h.color, h.coat, h.number);
+      const update = this.db.prepare('UPDATE horses SET name = ?, dorsal = ?, color = ?, coat = ? WHERE number = ?');
+      for (const h of DEFAULT_HORSES) update.run(h.name, h.dorsal, h.color, h.coat, h.number);
       logAdmin(this.db, {
         actorId,
         action: 'reset_horses',
